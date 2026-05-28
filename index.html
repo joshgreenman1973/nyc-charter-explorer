@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NYC Charter Explorer</title>
+<style>
+  :root{
+    --ink:#16130d; --ink-soft:#4a443a; --faint:#8a8276;
+    --paper:#f7f4ec; --card:#fffdf8; --line:#e2dccd; --line-strong:#c9c0ac;
+    --accent:#9a3412; --accent-soft:#fae6da; --mark:#ffe08a;
+    --rule:#d8d0bd;
+    --sans:"Helvetica Neue",Arial,sans-serif;
+    --serif:Georgia,"Times New Roman",serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+       font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent)}
+
+  /* ---- top bar ---- */
+  header{position:sticky;top:0;z-index:30;background:var(--card);
+         border-bottom:1px solid var(--line-strong);box-shadow:0 1px 0 rgba(0,0,0,.02)}
+  .bar{max-width:1180px;margin:0 auto;padding:14px 20px}
+  .titlerow{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  h1{font-family:var(--serif);font-weight:600;font-size:22px;margin:0;letter-spacing:-.01em}
+  .currency{font-size:12px;color:var(--faint)}
+  .controls{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;align-items:center}
+  .search{flex:1;min-width:240px;position:relative}
+  .search input{width:100%;padding:11px 38px 11px 14px;font-size:16px;font-family:var(--sans);
+    border:1px solid var(--line-strong);border-radius:8px;background:var(--paper);color:var(--ink)}
+  .search input:focus{outline:none;border-color:var(--accent);background:#fff}
+  .search .clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);
+    border:none;background:none;font-size:18px;color:var(--faint);cursor:pointer;padding:4px 8px;display:none}
+  select{padding:10px 12px;font-size:14px;font-family:var(--sans);border:1px solid var(--line-strong);
+    border-radius:8px;background:var(--paper);color:var(--ink);cursor:pointer}
+  label.ctl{font-size:12px;color:var(--faint);display:flex;flex-direction:column;gap:3px}
+  .count{font-size:13px;color:var(--ink-soft);margin-left:auto;white-space:nowrap}
+
+  /* ---- layout ---- */
+  .wrap{max-width:1180px;margin:0 auto;padding:20px;display:grid;
+        grid-template-columns:264px 1fr;gap:26px;align-items:start}
+  nav.toc{position:sticky;top:128px;max-height:calc(100vh - 148px);overflow-y:auto;
+    background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px}
+  nav.toc h2{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);
+    margin:6px 8px 8px;font-weight:700}
+  .chaplink{display:flex;justify-content:space-between;gap:8px;padding:6px 8px;border-radius:6px;
+    font-size:13px;color:var(--ink-soft);cursor:pointer;text-decoration:none;line-height:1.3}
+  .chaplink:hover{background:var(--paper)}
+  .chaplink.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+  .chaplink .cn{flex:1}
+  .chaplink .cc{font-size:11px;color:var(--faint);white-space:nowrap;font-variant-numeric:tabular-nums}
+
+  main{min-width:0}
+  .chapter-head{font-family:var(--serif);font-size:19px;font-weight:600;color:var(--ink);
+    margin:30px 0 4px;padding-bottom:6px;border-bottom:2px solid var(--ink);scroll-margin-top:140px}
+  .chapter-head:first-child{margin-top:0}
+  .chapter-sub{font-size:12px;color:var(--faint);margin-bottom:12px}
+
+  article{background:var(--card);border:1px solid var(--line);border-radius:10px;
+    margin:0 0 12px;overflow:hidden;scroll-margin-top:140px}
+  .sec-head{display:flex;align-items:baseline;gap:12px;padding:13px 16px;cursor:pointer;
+    user-select:none}
+  .sec-head:hover{background:var(--paper)}
+  .cite{font-family:var(--serif);font-weight:700;color:var(--accent);font-size:15px;
+    white-space:nowrap;min-width:64px;font-variant-numeric:tabular-nums}
+  .sec-title{font-weight:600;font-size:15px;flex:1;line-height:1.35}
+  .chip{font-size:10.5px;color:var(--faint);background:var(--paper);border:1px solid var(--line);
+    border-radius:20px;padding:2px 9px;white-space:nowrap;align-self:center}
+  .toggle{color:var(--faint);font-size:13px;transition:transform .15s;align-self:center}
+  article.open .toggle{transform:rotate(90deg)}
+  .sec-body{display:none;padding:0 16px 16px;border-top:1px solid var(--line);
+    font-family:var(--serif);font-size:15.5px;line-height:1.7;color:var(--ink)}
+  article.open .sec-body{display:block}
+  .sec-body p{margin:14px 0 0;white-space:pre-wrap}
+  .sec-body .reading{padding-top:6px}
+  mark{background:var(--mark);color:inherit;border-radius:2px;padding:0 1px}
+
+  .empty{padding:60px 20px;text-align:center;color:var(--faint)}
+  .snip{font-family:var(--serif);font-size:13px;color:var(--ink-soft);padding:0 16px 12px;
+    border-top:1px solid var(--line);line-height:1.6}
+  article.open .snip{display:none}
+
+  footer{max-width:1180px;margin:0 auto;padding:24px 20px 60px;font-size:12px;color:var(--faint);
+    line-height:1.6;border-top:1px solid var(--line);margin-top:30px}
+  footer a{color:var(--accent-soft);color:var(--accent)}
+
+  .toolbtns{display:flex;gap:8px}
+  .tbtn{font-size:12px;border:1px solid var(--line-strong);background:var(--paper);color:var(--ink-soft);
+    border-radius:7px;padding:8px 11px;cursor:pointer}
+  .tbtn:hover{background:#fff;border-color:var(--accent);color:var(--accent)}
+
+  @media (max-width:860px){
+    .wrap{grid-template-columns:1fr;padding:14px}
+    nav.toc{position:static;max-height:none;order:2;margin-top:10px}
+    nav.toc.collapsed .chaplink{display:none}
+    .count{margin-left:0}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="titlerow">
+      <h1>Charter of the City of New York</h1>
+      <span class="currency" id="currency"></span>
+    </div>
+    <div class="controls">
+      <div class="search">
+        <input id="q" type="search" placeholder="Search the full text of the Charter — e.g. mayor veto, land use review, conflicts of interest" autocomplete="off" spellcheck="false">
+        <button class="clear" id="clear" title="Clear">&times;</button>
+      </div>
+      <label class="ctl">scope
+        <select id="scope">
+          <option value="all">Title + text</option>
+          <option value="title">Titles only</option>
+        </select>
+      </label>
+      <label class="ctl">sort
+        <select id="sort">
+          <option value="chapter">Chapter order</option>
+          <option value="section">Section number</option>
+          <option value="length">Length (longest)</option>
+          <option value="relevance">Relevance</option>
+        </select>
+      </label>
+      <label class="ctl">chapter
+        <select id="chapfilter"><option value="">All chapters</option></select>
+      </label>
+      <div class="toolbtns">
+        <button class="tbtn" id="expandAll">Expand</button>
+        <button class="tbtn" id="collapseAll">Collapse</button>
+      </div>
+      <span class="count" id="count"></span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="toc" id="toc"><h2>Chapters</h2></nav>
+  <main id="main"></main>
+</div>
+
+<footer>
+  <strong>About this tool.</strong> The full text of the New York City Charter, made searchable and sortable.
+  Currency and source noted above. Compiled from the American Legal Publishing code library
+  (<a href="https://codelibrary.amlegal.com/codes/newyorkcity/latest/overview" target="_blank" rel="noopener">codelibrary.amlegal.com</a>)
+  via the open <a href="https://github.com/BetaNYC/nyc-charter-laws-rules" target="_blank" rel="noopener">BetaNYC nyc-charter-laws-rules</a> dataset.
+  For research and informational purposes only — not legal advice. Verify against the official code before relying on any provision.
+</footer>
+
+<script src="charter-data.js"></script>
+<script>
+const D = window.CHARTER_DATA;
+const SECTIONS = D.sections;
+const CHAPTERS = D.chapters;
+const elMain = document.getElementById('main');
+const elToc  = document.getElementById('toc');
+const elQ    = document.getElementById('q');
+const elSort = document.getElementById('sort');
+const elScope= document.getElementById('scope');
+const elChap = document.getElementById('chapfilter');
+const elCount= document.getElementById('count');
+
+document.getElementById('currency').textContent =
+  'Current through Local Law 2026/094 · ' + SECTIONS.length + ' sections';
+
+// chapter dropdown
+CHAPTERS.forEach(c=>{
+  const o=document.createElement('option');
+  o.value=c.citation; o.textContent=c.citation+' — '+c.title;
+  elChap.appendChild(o);
+});
+
+const esc = s => s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const STOP=new Set(['of','the','and','or','a','an','to','in','for','by','on','at','as','is','be','any','such','shall','with','from']);
+function tokens(q){return q.toLowerCase().split(/\s+/).filter(Boolean);}
+// tokens worth visually highlighting (skip tiny stopwords that match everywhere)
+function hlToks(toks){return toks.filter(t=>t.length>=3 && !STOP.has(t));}
+
+function highlight(text, toks){
+  const hts=hlToks(toks);
+  if(!hts.length) return esc(text);
+  let out=esc(text);
+  hts.forEach(t=>{
+    const re=new RegExp('('+t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
+    out=out.replace(re,'<mark>$1</mark>');
+  });
+  return out;
+}
+
+// build a relevance score + matched flag
+function score(sec, toks){
+  if(!toks.length) return 1;
+  const hay=(sec.citation+' '+sec.sec_title+' '+sec.chapter_title+' '+sec.text).toLowerCase();
+  const title=(sec.citation+' '+sec.sec_title+' '+sec.chapter_title).toLowerCase();
+  let s=0;
+  for(const t of toks){
+    if(!hay.includes(t)) return 0;          // AND match
+    const inTitle=title.includes(t);
+    const occ=hay.split(t).length-1;
+    s += (inTitle?12:0) + occ;
+  }
+  return s;
+}
+
+function snippet(text, toks, n=240){
+  const low=text.toLowerCase();
+  let idx=-1;
+  const seek=hlToks(toks).length?hlToks(toks):toks;
+  for(const t of seek){ const i=low.indexOf(t); if(i>=0){idx=i;break;} }
+  if(idx<0) return esc(text.slice(0,n))+(text.length>n?'…':'');
+  const start=Math.max(0,idx-70);
+  const seg=(start>0?'…':'')+text.slice(start,start+n)+(start+n<text.length?'…':'');
+  return highlight(seg,toks);
+}
+
+let state={q:'',scope:'all',sort:'chapter',chap:''};
+
+function chapterKey(s){return [s.chapter_num,s.chapter_suffix];}
+
+function sortSecs(arr,mode,scored){
+  const cmp={
+    doc:(a,b)=>a.doc_order-b.doc_order,
+    chapter:(a,b)=> (a.chapter_num-b.chapter_num)||a.chapter_suffix.localeCompare(b.chapter_suffix)||(a.sec_num-b.sec_num)||a.sec_suffix.localeCompare(b.sec_suffix),
+    section:(a,b)=> (a.sec_num-b.sec_num)||a.sec_suffix.localeCompare(b.sec_suffix),
+    length:(a,b)=> b.words-a.words,
+    relevance:(a,b)=> (scored.get(b.id)-scored.get(a.id))||a.doc_order-b.doc_order,
+  }[mode];
+  return arr.slice().sort(cmp);
+}
+
+function render(){
+  const toks=tokens(state.q);
+  const scored=new Map();
+  let list=SECTIONS.filter(s=>{
+    if(state.chap && s.chapter_citation!==state.chap) return false;
+    if(!toks.length){scored.set(s.id,0);return true;}
+    let sc;
+    if(state.scope==='title'){
+      const t=(s.citation+' '+s.sec_title+' '+s.chapter_title).toLowerCase();
+      sc = toks.every(tk=>t.includes(tk)) ? toks.reduce((a,tk)=>a+(t.split(tk).length-1),0)+10 : 0;
+    } else {
+      sc=score(s,toks);
+    }
+    scored.set(s.id,sc);
+    return sc>0;
+  });
+
+  // When searching, default to relevance ranking unless the user picked a sort explicitly.
+  let mode=state.sort;
+  if(toks.length && !state.sortTouched) mode='relevance';
+  list=sortSecs(list,mode,scored);
+
+  elCount.textContent = list.length+' of '+SECTIONS.length+' sections';
+
+  if(!list.length){
+    elMain.innerHTML='<div class="empty">No sections match “'+esc(state.q)+'”.</div>';
+    return;
+  }
+
+  const grouped = (mode==='doc'||mode==='chapter') && !state.chap;
+  let html='';
+  if(grouped){
+    let cur=null;
+    for(const s of list){
+      if(s.chapter_citation!==cur){
+        cur=s.chapter_citation;
+        html+=`<h3 class="chapter-head" id="ch_${cssId(cur)}">${esc(s.chapter_citation)}: ${esc(s.chapter_title)}</h3>`;
+        html+=`<div class="chapter-sub">${esc(s.chapter_citation)}</div>`;
+      }
+      html+=card(s,toks);
+    }
+  } else {
+    for(const s of list) html+=card(s,toks);
+  }
+  elMain.innerHTML=html;
+  // auto-open when searching (so matches show), else collapsed
+  if(toks.length){
+    document.querySelectorAll('article').forEach(a=>a.classList.add('open'));
+  }
+}
+
+function cssId(s){return s.replace(/[^a-z0-9]+/gi,'_');}
+
+function card(s,toks){
+  const title = s.sec_title || s.heading;
+  const body = s.text ? `<div class="reading"><p>${highlight(s.text,toks)}</p></div>` : '<p style="color:var(--faint)">No text in source.</p>';
+  const snip = (toks.length && s.text) ? `<div class="snip">${snippet(s.text,toks)}</div>` : '';
+  return `<article id="sec_${cssId(s.citation)}">
+    <div class="sec-head" onclick="this.parentNode.classList.toggle('open')">
+      <span class="cite">${esc(s.citation)}</span>
+      <span class="sec-title">${highlight(title,toks)}</span>
+      <span class="chip">${esc(s.chapter_citation)}</span>
+      <span class="toggle">▸</span>
+    </div>
+    ${snip}
+    <div class="sec-body">${body}</div>
+  </article>`;
+}
+
+// TOC
+function buildToc(){
+  CHAPTERS.forEach(c=>{
+    const a=document.createElement('a');
+    a.className='chaplink'; a.dataset.cit=c.citation;
+    a.href='#ch_'+cssId(c.citation);
+    a.innerHTML=`<span class="cn">${esc(c.title)}</span><span class="cc">${esc(c.citation)} · ${c.count}</span>`;
+    a.addEventListener('click',e=>{
+      // if filtered/sorted such that anchors don't exist, jump via filter
+      if(!document.getElementById('ch_'+cssId(c.citation))){
+        e.preventDefault();
+        elChap.value=''; elSort.value='chapter'; state.chap=''; state.sort='chapter'; state.sortTouched=false;
+        render();
+        setTimeout(()=>{const t=document.getElementById('ch_'+cssId(c.citation)); if(t)t.scrollIntoView();},30);
+      }
+    });
+    elToc.appendChild(a);
+  });
+}
+
+// scroll spy
+function spy(){
+  const heads=[...document.querySelectorAll('.chapter-head')];
+  if(!heads.length) return;
+  let active=heads[0].id;
+  const y=window.scrollY+150;
+  for(const h of heads){ if(h.offsetTop<=y) active=h.id; }
+  document.querySelectorAll('.chaplink').forEach(a=>a.classList.remove('active'));
+  const cur=document.querySelector('.chaplink[href="#'+active+'"]');
+  if(cur){cur.classList.add('active');
+    const nav=document.getElementById('toc');
+    if(cur.offsetTop<nav.scrollTop||cur.offsetTop>nav.scrollTop+nav.clientHeight)
+      nav.scrollTop=cur.offsetTop-nav.clientHeight/2;
+  }
+}
+
+// events
+let t;
+elQ.addEventListener('input',()=>{
+  state.q=elQ.value;
+  document.getElementById('clear').style.display=state.q?'block':'none';
+  clearTimeout(t); t=setTimeout(()=>{ if(state.q && elSort.value==='doc'){/*keep*/} render(); },120);
+});
+document.getElementById('clear').addEventListener('click',()=>{
+  elQ.value='';state.q='';document.getElementById('clear').style.display='none';render();elQ.focus();
+});
+elSort.addEventListener('change',()=>{state.sort=elSort.value;state.sortTouched=true;render();});
+elScope.addEventListener('change',()=>{state.scope=elScope.value;render();});
+elChap.addEventListener('change',()=>{state.chap=elChap.value;render();window.scrollTo(0,0);});
+document.getElementById('expandAll').addEventListener('click',()=>document.querySelectorAll('article').forEach(a=>a.classList.add('open')));
+document.getElementById('collapseAll').addEventListener('click',()=>document.querySelectorAll('article').forEach(a=>a.classList.remove('open')));
+window.addEventListener('scroll',()=>{requestAnimationFrame(spy);});
+// keyboard: / focuses search
+document.addEventListener('keydown',e=>{
+  if(e.key==='/' && document.activeElement!==elQ){e.preventDefault();elQ.focus();}
+  if(e.key==='Escape' && document.activeElement===elQ){elQ.value='';state.q='';render();}
+});
+
+buildToc();
+render();
+// deep link e.g. #sec_§_3
+if(location.hash){const el=document.querySelector(location.hash.replace(/§/g,'§'));}
+</script>
+</body>
+</html>
