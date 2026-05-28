@@ -68,6 +68,13 @@
   .sec-title{font-weight:600;font-size:15px;flex:1;line-height:1.35}
   .chip{font-size:10.5px;color:var(--faint);background:var(--paper);border:1px solid var(--line);
     border-radius:20px;padding:2px 9px;white-space:nowrap;align-self:center}
+  .amend{font-size:10.5px;color:var(--ink-soft);background:var(--paper);border:1px solid var(--line);
+    border-radius:20px;padding:2px 9px;white-space:nowrap;align-self:center;font-variant-numeric:tabular-nums}
+  .amend.hot{color:var(--accent);background:var(--accent-soft);border-color:#eccab7;font-weight:600}
+  .amend.eff{color:#7a5b16;background:#fdf2d6;border-color:#ecd9a4}
+  .laws{margin-top:14px;padding-top:10px;border-top:1px dotted var(--line-strong);
+    font-family:var(--sans);font-size:12px;color:var(--ink-soft);line-height:1.7}
+  .laws-h{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin-bottom:3px}
   .toggle{color:var(--faint);font-size:13px;transition:transform .15s;align-self:center}
   article.open .toggle{transform:rotate(90deg)}
   .sec-body{display:none;padding:0 16px 16px;border-top:1px solid var(--line);
@@ -121,12 +128,22 @@
         <select id="sort">
           <option value="chapter">Chapter order</option>
           <option value="section">Section number</option>
+          <option value="recent">Most recently amended</option>
+          <option value="amended">Most amended</option>
           <option value="length">Length (longest)</option>
           <option value="relevance">Relevance</option>
         </select>
       </label>
       <label class="ctl">chapter
         <select id="chapfilter"><option value="">All chapters</option></select>
+      </label>
+      <label class="ctl">amended since
+        <select id="since">
+          <option value="0">Any time</option>
+          <option value="2024">2024</option>
+          <option value="2020">2020</option>
+          <option value="2015">2015</option>
+        </select>
       </label>
       <div class="toolbtns">
         <button class="tbtn" id="expandAll">Expand</button>
@@ -148,6 +165,13 @@
   (<a href="https://codelibrary.amlegal.com/codes/newyorkcity/latest/overview" target="_blank" rel="noopener">codelibrary.amlegal.com</a>)
   via the open <a href="https://github.com/BetaNYC/nyc-charter-laws-rules" target="_blank" rel="noopener">BetaNYC nyc-charter-laws-rules</a> dataset.
   For research and informational purposes only — not legal advice. Verify against the official code before relying on any provision.
+  <br><br>
+  <strong>About the "amended" dates.</strong> Amendment years and counts are parsed from the editor's notes in the source, which
+  record changes by <em>Local Law</em> number and date. This dates a section's most recent recorded statutory change — it is
+  <em>not</em> Charter Revision Commission attribution. Charter amendments adopted by ballot referendum are not consistently
+  Local-Law-numbered, so this view cannot say which Charter Revision Commission produced a given change. About half of sections
+  (388 of 770) carry a Local Law amendment note; absence of a date means no amendment is recorded in the source, not necessarily that a section is unchanged.
+  An "eff. YYYY" tag marks a change with a future effective date that is on record but not yet in force.
 </footer>
 
 <script src="charter-data.js"></script>
@@ -216,7 +240,7 @@ function snippet(text, toks, n=240){
   return highlight(seg,toks);
 }
 
-let state={q:'',scope:'all',sort:'chapter',chap:''};
+let state={q:'',scope:'all',sort:'chapter',chap:'',since:0};
 
 function chapterKey(s){return [s.chapter_num,s.chapter_suffix];}
 
@@ -226,6 +250,8 @@ function sortSecs(arr,mode,scored){
     chapter:(a,b)=> (a.chapter_num-b.chapter_num)||a.chapter_suffix.localeCompare(b.chapter_suffix)||(a.sec_num-b.sec_num)||a.sec_suffix.localeCompare(b.sec_suffix),
     section:(a,b)=> (a.sec_num-b.sec_num)||a.sec_suffix.localeCompare(b.sec_suffix),
     length:(a,b)=> b.words-a.words,
+    recent:(a,b)=> ((b.latest_amend||0)-(a.latest_amend||0))||(b.amend_count-a.amend_count)||(a.chapter_num-b.chapter_num)||(a.sec_num-b.sec_num),
+    amended:(a,b)=> (b.amend_count-a.amend_count)||((b.latest_amend||0)-(a.latest_amend||0))||(a.chapter_num-b.chapter_num)||(a.sec_num-b.sec_num),
     relevance:(a,b)=> (scored.get(b.id)-scored.get(a.id))||a.doc_order-b.doc_order,
   }[mode];
   return arr.slice().sort(cmp);
@@ -236,6 +262,7 @@ function render(){
   const scored=new Map();
   let list=SECTIONS.filter(s=>{
     if(state.chap && s.chapter_citation!==state.chap) return false;
+    if(state.since && !(s.latest_amend && s.latest_amend>=state.since)) return false;
     if(!toks.length){scored.set(s.id,0);return true;}
     let sc;
     if(state.scope==='title'){
@@ -284,6 +311,18 @@ function render(){
 
 function cssId(s){return s.replace(/[^a-z0-9]+/gi,'_');}
 
+function amendBadge(s){
+  const eff = s.eff_future ? `<span class="amend eff" title="A change with a future effective date is on record">eff. ${s.eff_future}</span>` : '';
+  if(!s.latest_amend) return eff;
+  const hot = s.latest_amend>=2024 ? ' hot' : '';
+  const n = s.amend_count>1 ? ` ×${s.amend_count}` : '';
+  return `<span class="amend${hot}" title="Most recent amendment by Local Law (enactment year); ${s.amend_count} Local Law amendment${s.amend_count>1?'s':''} on record">amended ${s.latest_amend}${n}</span>${eff}`;
+}
+function lawList(s){
+  if(!s.laws.length) return '';
+  return `<div class="laws"><span class="laws-h">Amendment history (Local Laws on record):</span> ${s.laws.map(esc).join(' · ')}</div>`;
+}
+
 function card(s,toks){
   const title = s.sec_title || s.heading;
   const body = s.text ? `<div class="reading"><p>${highlight(s.text,toks)}</p></div>` : '<p style="color:var(--faint)">No text in source.</p>';
@@ -292,11 +331,12 @@ function card(s,toks){
     <div class="sec-head" onclick="this.parentNode.classList.toggle('open')">
       <span class="cite">${esc(s.citation)}</span>
       <span class="sec-title">${highlight(title,toks)}</span>
+      ${amendBadge(s)}
       <span class="chip">${esc(s.chapter_citation)}</span>
       <span class="toggle">▸</span>
     </div>
     ${snip}
-    <div class="sec-body">${body}</div>
+    <div class="sec-body">${body}${lawList(s)}</div>
   </article>`;
 }
 
@@ -349,6 +389,7 @@ document.getElementById('clear').addEventListener('click',()=>{
 elSort.addEventListener('change',()=>{state.sort=elSort.value;state.sortTouched=true;render();});
 elScope.addEventListener('change',()=>{state.scope=elScope.value;render();});
 elChap.addEventListener('change',()=>{state.chap=elChap.value;render();window.scrollTo(0,0);});
+document.getElementById('since').addEventListener('change',e=>{state.since=+e.target.value;render();window.scrollTo(0,0);});
 document.getElementById('expandAll').addEventListener('click',()=>document.querySelectorAll('article').forEach(a=>a.classList.add('open')));
 document.getElementById('collapseAll').addEventListener('click',()=>document.querySelectorAll('article').forEach(a=>a.classList.remove('open')));
 window.addEventListener('scroll',()=>{requestAnimationFrame(spy);});

@@ -15,6 +15,33 @@ def chapter_sort_key(citation):
         return (9999, "")
     return (int(m.group(1)), m.group(2) or "")
 
+THIS_YEAR = datetime.date.today().year
+
+def amendment_meta(text):
+    """Extract Local Law citations + amendment recency from the editor's note.
+    Dating is by Local Law number / explicit dates as recorded by the source
+    compiler (American Legal). This is NOT Charter Revision Commission attribution."""
+    laws = re.findall(r"L\.L\.\s*((?:19|20)\d{2})/(\d{2,3})", text)
+    seen = set(); law_cites = []
+    for y, n in laws:
+        c = f"L.L. {y}/{n}"
+        if c not in seen:
+            seen.add(c); law_cites.append(c)
+    ll_years = [int(c.split()[1].split('/')[0]) for c in law_cites]
+    # The amendment year is the Local Law ENACTMENT year — unambiguous.
+    latest = max(ll_years) if ll_years else None
+    # Calendar dates in the note may include future EFFECTIVE dates; surface the
+    # latest future-effective year separately so we don't mislabel it as "amended".
+    cal_years = [int(m) for m in re.findall(r"\b\d{1,2}/\d{1,2}/((?:19|20)\d{2})", text)]
+    future_years = [y for y in cal_years if y > THIS_YEAR]
+    return {
+        "laws": law_cites,
+        "amend_count": len(law_cites),
+        "latest_amend": latest,
+        "eff_future": max(future_years) if future_years else None,
+        "has_note": "Editor's note" in text,
+    }
+
 def section_sort_key(citation):
     # "§ 259" -> (259, ''); "§ 265-a" -> (265, 'a'); "§ 1-101" -> handle multi-part
     m = re.match(r"§\s*([\d]+)(?:-([\dA-Za-z]+))?", citation)
@@ -59,6 +86,7 @@ for idx, r in enumerate(records):
     m = re.match(r"Section\s+[^.]+\.\s*(.*)", heading)
     if m:
         sec_title = m.group(1).strip()
+    am = amendment_meta(r["text"])
     items.append({
         "id": r["id"],
         "doc_order": idx,
@@ -73,6 +101,10 @@ for idx, r in enumerate(records):
         "sec_num": snum,
         "sec_suffix": ssuffix,
         "words": len(r["text"].split()),
+        "laws": am["laws"],
+        "amend_count": am["amend_count"],
+        "latest_amend": am["latest_amend"],
+        "eff_future": am["eff_future"],
     })
 
 # Build chapter summary (count sections, sort)
