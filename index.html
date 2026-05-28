@@ -75,6 +75,13 @@
   .laws{margin-top:14px;padding-top:10px;border-top:1px dotted var(--line-strong);
     font-family:var(--sans);font-size:12px;color:var(--ink-soft);line-height:1.7}
   .laws-h{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin-bottom:3px}
+  .crc-badge{font-size:10.5px;color:#0b5563;background:#d8f0f2;border:1px solid #a9dbe0;
+    border-radius:20px;padding:2px 9px;white-space:nowrap;align-self:center;font-weight:700;letter-spacing:.02em}
+  .crc-detail{margin-top:14px;padding:10px 12px;background:#eefafb;border:1px solid #c5e6ea;border-radius:8px;
+    font-family:var(--sans);font-size:12.5px;color:#0b5563}
+  .crc-detail ul{margin:4px 0 0;padding-left:18px}
+  .crc-detail li{margin:3px 0;color:var(--ink-soft)}
+  .crc-detail .passed{font-size:10px;color:#0b5563;background:#cdeef0;border-radius:10px;padding:1px 6px;margin-left:4px}
   .toggle{color:var(--faint);font-size:13px;transition:transform .15s;align-self:center}
   article.open .toggle{transform:rotate(90deg)}
   .sec-body{display:none;padding:0 16px 16px;border-top:1px solid var(--line);
@@ -145,6 +152,16 @@
           <option value="2015">2015</option>
         </select>
       </label>
+      <label class="ctl">revision commission
+        <select id="crc">
+          <option value="">All sections</option>
+          <option value="any">Any CRC change</option>
+          <option value="2025">2025 commission</option>
+          <option value="2024">2024 commission</option>
+          <option value="2019">2019 commission</option>
+          <option value="2018">2018 commission</option>
+        </select>
+      </label>
       <div class="toolbtns">
         <button class="tbtn" id="expandAll">Expand</button>
         <button class="tbtn" id="collapseAll">Collapse</button>
@@ -172,6 +189,13 @@
   Local-Law-numbered, so this view cannot say which Charter Revision Commission produced a given change. About half of sections
   (388 of 770) carry a Local Law amendment note; absence of a date means no amendment is recorded in the source, not necessarily that a section is unchanged.
   An "eff. YYYY" tag marks a change with a future effective date that is on record but not yet in force.
+  <br><br>
+  <strong>Charter Revision Commission tags.</strong> The "CRC" badge and the "revision commission" filter mark sections changed by a
+  <em>passed</em> ballot proposal from the 2018, 2019, 2024 or 2025 Charter Revision Commissions. This mapping is built separately from the
+  amendment data above: section lists were taken from each commission's official "Proposed Charter Amendment Text" (enacting clauses only),
+  independently re-extracted and checked against the source documents. Proposals that <em>failed</em> at the ballot (2024 Q6 MWBE/modernization;
+  2025 Q6 even-year elections) did not change the Charter and are not tagged. Section 1152 (the Charter's effective-date section) is touched by
+  nearly every proposal. Sources: official CRC reports at nyc.gov/site/charter; see <code>data/crc-map.json</code> in the repository for the full mapping and source URLs.
 </footer>
 
 <script src="charter-data.js"></script>
@@ -240,7 +264,7 @@ function snippet(text, toks, n=240){
   return highlight(seg,toks);
 }
 
-let state={q:'',scope:'all',sort:'chapter',chap:'',since:0};
+let state={q:'',scope:'all',sort:'chapter',chap:'',since:0,crc:''};
 
 function chapterKey(s){return [s.chapter_num,s.chapter_suffix];}
 
@@ -263,6 +287,8 @@ function render(){
   let list=SECTIONS.filter(s=>{
     if(state.chap && s.chapter_citation!==state.chap) return false;
     if(state.since && !(s.latest_amend && s.latest_amend>=state.since)) return false;
+    if(state.crc==='any' && !s.crc_years.length) return false;
+    if(state.crc && state.crc!=='any' && !s.crc_years.includes(+state.crc)) return false;
     if(!toks.length){scored.set(s.id,0);return true;}
     let sc;
     if(state.scope==='title'){
@@ -322,6 +348,16 @@ function lawList(s){
   if(!s.laws.length) return '';
   return `<div class="laws"><span class="laws-h">Amendment history (Local Laws on record):</span> ${s.laws.map(esc).join(' · ')}</div>`;
 }
+function crcBadge(s){
+  if(!s.crc_years.length) return '';
+  const yrs=s.crc_years.map(y=>`'`+String(y).slice(2)).join(' ');
+  return `<span class="crc-badge" title="Changed by a Charter Revision Commission ballot proposal (passed)">CRC ${yrs}</span>`;
+}
+function crcDetail(s){
+  if(!s.crc.length) return '';
+  const rows=s.crc.map(t=>`<li><b>${t.year}</b> · Question ${t.question} — ${esc(t.title)} <span class="passed">passed</span></li>`).join('');
+  return `<div class="crc-detail"><span class="laws-h">Charter Revision Commission changes:</span><ul>${rows}</ul></div>`;
+}
 
 function card(s,toks){
   const title = s.sec_title || s.heading;
@@ -331,12 +367,13 @@ function card(s,toks){
     <div class="sec-head" onclick="this.parentNode.classList.toggle('open')">
       <span class="cite">${esc(s.citation)}</span>
       <span class="sec-title">${highlight(title,toks)}</span>
+      ${crcBadge(s)}
       ${amendBadge(s)}
       <span class="chip">${esc(s.chapter_citation)}</span>
       <span class="toggle">▸</span>
     </div>
     ${snip}
-    <div class="sec-body">${body}${lawList(s)}</div>
+    <div class="sec-body">${body}${crcDetail(s)}${lawList(s)}</div>
   </article>`;
 }
 
@@ -390,6 +427,7 @@ elSort.addEventListener('change',()=>{state.sort=elSort.value;state.sortTouched=
 elScope.addEventListener('change',()=>{state.scope=elScope.value;render();});
 elChap.addEventListener('change',()=>{state.chap=elChap.value;render();window.scrollTo(0,0);});
 document.getElementById('since').addEventListener('change',e=>{state.since=+e.target.value;render();window.scrollTo(0,0);});
+document.getElementById('crc').addEventListener('change',e=>{state.crc=e.target.value;render();window.scrollTo(0,0);});
 document.getElementById('expandAll').addEventListener('click',()=>document.querySelectorAll('article').forEach(a=>a.classList.add('open')));
 document.getElementById('collapseAll').addEventListener('click',()=>document.querySelectorAll('article').forEach(a=>a.classList.remove('open')));
 window.addEventListener('scroll',()=>{requestAnimationFrame(spy);});

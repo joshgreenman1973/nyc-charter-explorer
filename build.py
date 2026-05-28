@@ -7,6 +7,16 @@ VERS = "data/versions.json"
 
 records = json.load(open(SRC))
 versions = json.load(open(VERS))
+crc = json.load(open("data/crc-map.json"))
+
+# Build citation -> list of enacted CRC tags (only proposals that PASSED).
+crc_tags = {}
+for p in crc["proposals"]:
+    if not p["passed"]:
+        continue
+    for cite in p["sections"]:
+        crc_tags.setdefault(cite, []).append(
+            {"year": p["year"], "question": p["question"], "title": p["title"]})
 
 def chapter_sort_key(citation):
     # "Chapter 18-A" -> (18, 'A'); "Chapter 2-A" -> (2,'A'); "Chapter 11" -> (11,'')
@@ -105,6 +115,8 @@ for idx, r in enumerate(records):
         "amend_count": am["amend_count"],
         "latest_amend": am["latest_amend"],
         "eff_future": am["eff_future"],
+        "crc": crc_tags.get(cit, []),
+        "crc_years": sorted({t["year"] for t in crc_tags.get(cit, [])}),
     })
 
 # Build chapter summary (count sections, sort)

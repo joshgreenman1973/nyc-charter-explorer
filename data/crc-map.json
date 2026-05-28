@@ -1,0 +1,32 @@
+{
+  "_about": "Mapping of NYC Charter sections to the recent Charter Revision Commission ballot proposals that amended/added them. Built from the official CRC 'Proposed Charter Amendment Text' appendices (enacting clauses only), independently re-extracted and spot-verified against the source PDFs. Only PASSED proposals actually changed the Charter; failed proposals are recorded with passed=false and are NOT applied as tags. Section 1152 (effective-date/transition section) is touched by essentially every proposal and is included for completeness.",
+  "sources": {
+    "2018": "https://www.nyc.gov/assets/charter/downloads/pdf/final-report-20180904.pdf",
+    "2019": "https://www.nyc.gov/assets/charter/downloads/pdf/reports-ballot-issues/final-report-20190802.pdf",
+    "2024": "https://www.nyc.gov/assets/charter/downloads/pdf/reports-ballot-issues/Proposed-Amendments-to-CC-Text.pdf",
+    "2025": "https://www.nyc.gov/assets/charter/downloads/pdf/2025/appendix-c-proposed-amendments.pdf"
+  },
+  "proposals": [
+    {"year": 2018, "question": 1, "title": "Campaign Finance", "passed": true, "sections": ["§ 1052", "§ 1152"]},
+    {"year": 2018, "question": 2, "title": "Civic Engagement Commission", "passed": true, "sections": ["§ 225-a", "§ 3200", "§ 3201", "§ 3202", "§ 3204", "§ 1152"]},
+    {"year": 2018, "question": 3, "title": "Community Boards", "passed": true, "sections": ["§ 82", "§ 2800", "§ 3203", "§ 1152"]},
+
+    {"year": 2019, "question": 1, "title": "Elections (Ranked-Choice Voting)", "passed": true, "sections": ["§ 10", "§ 24", "§ 25", "§ 50", "§ 51", "§ 81", "§ 94", "§ 1057-g", "§ 1152"]},
+    {"year": 2019, "question": 2, "title": "Civilian Complaint Review Board", "passed": true, "sections": ["§ 440", "§ 1152"]},
+    {"year": 2019, "question": 3, "title": "Ethics and Governance", "passed": true, "sections": ["§ 20-h", "§ 31", "§ 391", "§ 392", "§ 2602", "§ 2604", "§ 1152"]},
+    {"year": 2019, "question": 4, "title": "City Budget", "passed": true, "sections": ["§ 24", "§ 82", "§ 250", "§ 258", "§ 1515", "§ 1516", "§ 1528", "§ 1152"]},
+    {"year": 2019, "question": 5, "title": "Land Use (ULURP referrals)", "passed": true, "sections": ["§ 197-c", "§ 1152"]},
+
+    {"year": 2024, "question": 2, "title": "Clean Streets (Sanitation)", "passed": true, "sections": ["§ 753", "§ 13-e", "§ 1152"]},
+    {"year": 2024, "question": 3, "title": "Fiscal Responsibility", "passed": true, "sections": ["§ 33", "§ 235", "§ 236", "§ 237", "§ 249", "§ 251", "§ 1152"]},
+    {"year": 2024, "question": 4, "title": "Public Safety", "passed": true, "sections": ["§ 33-a", "§ 1152"]},
+    {"year": 2024, "question": 5, "title": "Capital Planning", "passed": true, "sections": ["§ 204", "§ 215", "§ 228", "§ 234", "§ 1152"]},
+    {"year": 2024, "question": 6, "title": "MWBE & Modernization", "passed": false, "sections": ["§ 20-h", "§ 1301", "§ 3005", "§ 3007", "§ 3009", "§ 1152"]},
+
+    {"year": 2025, "question": 2, "title": "Fast Track Affordable Housing", "passed": true, "sections": ["§ 197-d", "§ 197-e", "§ 197-f", "§ 200", "§ 201", "§ 215", "§ 666", "§ 666-a", "§ 668", "§ 1152"]},
+    {"year": 2025, "question": 3, "title": "Simplify Review of Modest Projects (ELURP)", "passed": true, "sections": ["§ 197-d", "§ 197-e", "§ 199", "§ 200", "§ 201", "§ 218", "§ 1152"]},
+    {"year": 2025, "question": 4, "title": "Affordable Housing Appeals Board", "passed": true, "sections": ["§ 197-d", "§ 197-g", "§ 1152"]},
+    {"year": 2025, "question": 5, "title": "Digital City Map", "passed": true, "sections": ["§ 82", "§ 198", "§ 1152"]},
+    {"year": 2025, "question": 6, "title": "Even-Year Elections", "passed": false, "sections": ["§ 4", "§ 25", "§ 50", "§ 51", "§ 1057-h", "§ 1152"]}
+  ]
+}
