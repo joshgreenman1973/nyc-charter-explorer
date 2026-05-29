@@ -45,6 +45,55 @@ def current_through(path):
         return None
 
 
+def diff_sections(old_path, new_path):
+    """Compare two charter.json files by record id. Returns a dict describing
+    section-text changes (added/removed/edited citations) for the changelog."""
+    try:
+        old = {r["id"]: r for r in json.load(open(old_path))}
+    except Exception:
+        old = {}
+    new = {r["id"]: r for r in json.load(open(new_path))}
+    added = sorted(new[i]["citation"] for i in new if i not in old)
+    removed = sorted(old[i]["citation"] for i in old if i not in new)
+    edited = sorted(new[i]["citation"] for i in new
+                    if i in old and (new[i]["text"] != old[i]["text"]
+                                     or new[i]["heading"] != old[i]["heading"]))
+    return {"added": added, "removed": removed, "edited": edited}
+
+
+def write_changelog_entry(old_through, new_through, changes):
+    """Prepend a dated entry to CHANGELOG.md recording what this refresh changed."""
+    path = os.path.join(HERE, "CHANGELOG.md")
+    today = datetime.date.today().isoformat()
+    lines = [f"## {today}", ""]
+    lines.append(f"- Currency: `{old_through or 'unknown'}` -> `{new_through}`")
+    a, r, e = changes["added"], changes["removed"], changes["edited"]
+    if not (a or r or e):
+        lines.append("- No section text changed (currency/effective-date update only).")
+    else:
+        def fmt(cites):
+            shown = ", ".join(cites[:15])
+            return shown + (f" (+{len(cites) - 15} more)" if len(cites) > 15 else "")
+        if e:
+            lines.append(f"- {len(e)} section(s) with changed text: {fmt(e)}")
+        if a:
+            lines.append(f"- {len(a)} section(s) added: {fmt(a)}")
+        if r:
+            lines.append(f"- {len(r)} section(s) removed: {fmt(r)}")
+    entry = "\n".join(lines) + "\n\n"
+
+    header = ("# Changelog\n\n"
+              "Record of when the Charter data in this explorer changed, kept by "
+              "`refresh.py`. A refresh is logged here only when American Legal "
+              "Publishing's `currentThrough` version string advances. Section-level "
+              "notes compare the new data against the prior copy by record id.\n\n")
+    existing = ""
+    if os.path.exists(path):
+        body = open(path).read()
+        existing = body[len(header):] if body.startswith(header) else body
+    open(path, "w").write(header + entry + existing)
+
+
 def main():
     check_only = "--check" in sys.argv
     vpath = os.path.join(DATA, "versions.json")
@@ -74,6 +123,11 @@ def main():
               file=sys.stderr)
         return 2
 
+    # Diff the new sections against the current data BEFORE overwriting, so the
+    # changelog can say whether real section text moved or only the date bumped.
+    text_changes = diff_sections(os.path.join(DATA, "charter.json"),
+                                 os.path.join(OUT, "charter.json"))
+
     shutil.copyfile(os.path.join(OUT, "charter.json"), os.path.join(DATA, "charter.json"))
     versions = json.load(open(vpath)) if os.path.exists(vpath) else {}
     versions["charter"] = {
@@ -87,6 +141,10 @@ def main():
 
     print("Rebuilding site (build.py) ...")
     run([sys.executable, "build.py"], HERE)
+
+    if changed:
+        write_changelog_entry(old_through, new_through, text_changes)
+        print("Updated CHANGELOG.md")
 
     print(f"\nDONE. {'CHANGED' if changed else 'UNCHANGED'}")
     print(f"  was: {old_through!r}")
