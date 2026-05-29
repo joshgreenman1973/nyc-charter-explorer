@@ -1,0 +1,15 @@
+{
+  "name": "nyc-charter-refresh",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Charter-only fetch + parse toolchain (faithful copy of BetaNYC's parser) used to refresh data/charter.json from American Legal Publishing.",
+  "scripts": {
+    "fetch": "node fetch-charter.js",
+    "build": "node build-charter.js"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.17",
+    "fast-xml-parser": "^5.8.0"
+  }
+}

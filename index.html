@@ -286,8 +286,12 @@ const elScope= document.getElementById('scope');
 const elChap = document.getElementById('chapfilter');
 const elCount= document.getElementById('count');
 
+// Currency comes from the data (refreshed by refresh.py from American Legal
+// Publishing), not a hardcoded string — so a refresh updates the display.
+const _through = ((D.version && D.version.charter && D.version.charter.currentThrough) ||
+  'Current through Local Law 2026/094').replace(/,and\b/g, ', and').replace(/\s+/g, ' ').trim();
 document.getElementById('currency').textContent =
-  'Current through Local Law 2026/094 · ' + SECTIONS.length + ' sections';
+  _through + ' · ' + SECTIONS.length + ' sections';
 
 // chapter dropdown
 CHAPTERS.forEach(c=>{

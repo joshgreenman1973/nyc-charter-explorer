@@ -167,9 +167,11 @@ with open("charter-data.js", "w") as f:
 print("Wrote charter-data.js")
 
 # ---- NotebookLM document ----
-header = versions.get("charter") if isinstance(versions, dict) else None
-# versions.json structure unknown; read raw
-raw_v = open(VERS).read()
+# Currency string comes from versions.json (refreshed from American Legal
+# Publishing by refresh.py), so the doc header tracks the data automatically.
+_chv = versions.get("charter", {}) if isinstance(versions, dict) else {}
+currency_str = (_chv.get("currentThrough") or
+                "Current through Local Law 2026/094.").replace(",and", ", and")
 total_words = sum(it["words"] for it in items)
 
 md = []
@@ -178,8 +180,7 @@ md.append("")
 md.append("*The full text of the New York City Charter, organized by chapter and section, "
           "prepared as a single reference document for question-and-answer use.*")
 md.append("")
-md.append("**Currency:** Current through Local Law 2026/094, enacted May 16, 2026; includes "
-          "amendments effective through May 17, 2026.")
+md.append(f"**Currency:** {currency_str}")
 md.append(f"**Scope:** {len(items)} sections across {len(chapter_list)} chapters (~{total_words:,} words).")
 md.append("**Source:** American Legal Publishing code library (codelibrary.amlegal.com), "
           "compiled via the BetaNYC nyc-charter-laws-rules dataset.")
