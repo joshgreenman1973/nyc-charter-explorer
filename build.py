@@ -10,13 +10,25 @@ versions = json.load(open(VERS))
 crc = json.load(open("data/crc-map.json"))
 
 # Build citation -> list of enacted CRC tags (only proposals that PASSED).
+# Section entries are {"cite", "action"}; older bare-string entries still work.
+def _cite(s):
+    return s["cite"] if isinstance(s, dict) else s
+def _action(s):
+    return s.get("action") if isinstance(s, dict) else None
+
 crc_tags = {}
+rejected = []  # failed proposals, surfaced as context (NOT tagged onto sections)
 for p in crc["proposals"]:
     if not p["passed"]:
+        rejected.append({
+            "year": p["year"], "question": p["question"], "title": p["title"],
+            "sections": [{"cite": _cite(s), "action": _action(s)} for s in p["sections"]],
+        })
         continue
-    for cite in p["sections"]:
-        crc_tags.setdefault(cite, []).append(
-            {"year": p["year"], "question": p["question"], "title": p["title"]})
+    for s in p["sections"]:
+        crc_tags.setdefault(_cite(s), []).append(
+            {"year": p["year"], "question": p["question"], "title": p["title"],
+             "action": _action(s)})
 
 def chapter_sort_key(citation):
     # "Chapter 18-A" -> (18, 'A'); "Chapter 2-A" -> (2,'A'); "Chapter 11" -> (11,'')
@@ -140,9 +152,19 @@ out = {
     "chapters": chapter_list,
     "sections": items,
     "total_sections": len(items),
+    "crc_sources": crc.get("sources", {}),
+    "crc_rejected": rejected,
 }
 json.dump(out, open("charter-data.json", "w"), ensure_ascii=False)
 print(f"Wrote charter-data.json: {len(items)} sections, {len(chapter_list)} chapters")
+
+# charter-data.js: same payload bundled as a JS global so the page works by
+# double-click (file://) with no server.
+with open("charter-data.js", "w") as f:
+    f.write("window.CHARTER_DATA = ")
+    json.dump(out, f, ensure_ascii=False)
+    f.write(";")
+print("Wrote charter-data.js")
 
 # ---- NotebookLM document ----
 header = versions.get("charter") if isinstance(versions, dict) else None
