@@ -140,6 +140,19 @@
   .rejected .rbody{padding:0 14px 12px;font-size:12.5px;color:var(--ink-soft);line-height:1.6}
   .rejected .rtag{font-size:10px;color:#8a2b2b;background:#f7e0e0;border:1px solid #e6bcbc;border-radius:10px;padding:1px 7px;margin-left:6px;font-weight:700}
 
+  /* amendment timeline */
+  .timeline{margin-top:14px;padding-top:10px;border-top:1px dotted var(--line-strong)}
+  .tl-track{position:relative;height:2px;background:var(--line-strong);margin:14px 4px 4px}
+  .tl-dot{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;background:var(--accent);
+    transform:translate(-50%,-50%);border:2px solid var(--card);cursor:default}
+  .tl-ax{display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint);
+    font-variant-numeric:tabular-nums;margin:0 0 2px}
+
+  /* search syntax hint */
+  .hint{font-size:11.5px;color:var(--faint);margin-top:8px;line-height:1.5}
+  .hint code{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:0 4px;
+    font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--ink-soft)}
+
   /* CRC action tints */
   .crc-detail .act{font-size:10px;border-radius:10px;padding:1px 7px;margin-left:6px;font-weight:700}
   .crc-detail .act.added{color:#0b6b2e;background:#d7f0df;border:1px solid #aedabd}
@@ -224,10 +237,12 @@
       <div class="toolbtns">
         <button class="tbtn" id="expandAll">Expand</button>
         <button class="tbtn" id="collapseAll">Collapse</button>
+        <button class="tbtn" id="exportBtn" title="Download the sections currently shown as a text file">Export</button>
       </div>
       <span class="count" id="count"></span>
     </div>
     <div class="filterbar" id="filterbar"></div>
+    <div class="hint">Search tips: use <code>"quotes"</code> for an exact phrase, <code>-word</code> to exclude a term, and <code>OR</code> between terms to match either.</div>
   </div>
 </header>
 
@@ -300,8 +315,30 @@ const CITE_RE=/§\s*(\d+[\dA-Za-z\-]*)|\bsection\s+(\d+[\dA-Za-z\-]*)/gi;
 const esc = s => s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const STOP=new Set(['of','the','and','or','a','an','to','in','for','by','on','at','as','is','be','any','such','shall','with','from']);
 function tokens(q){return q.toLowerCase().split(/\s+/).filter(Boolean);}
-// tokens worth visually highlighting (skip tiny stopwords that match everywhere)
-function hlToks(toks){return toks.filter(t=>t.length>=3 && !STOP.has(t));}
+// tokens worth visually highlighting: keep multi-word phrases always; skip tiny stopwords
+function hlToks(toks){return toks.filter(t=>t.indexOf(' ')>=0 || (t.length>=3 && !STOP.has(t)));}
+
+// Parse a query into OR-groups; each group has phrases ("..."), required AND terms,
+// and excluded -terms.  e.g.  "land use" zoning -repealed OR landmark
+function parseQuery(q){
+  return q.split(/\s+OR\s+/).map(g=>{
+    const phrases=[];
+    let rest=g.replace(/"([^"]+)"/g,(m,p)=>{const t=p.toLowerCase().trim(); if(t)phrases.push(t); return ' ';});
+    const required=[], excluded=[];
+    rest.toLowerCase().split(/\s+/).filter(Boolean).forEach(tk=>{
+      if(tk[0]==='-' && tk.length>1) excluded.push(tk.slice(1));
+      else required.push(tk);
+    });
+    return {phrases,required,excluded};
+  }).filter(g=>g.phrases.length||g.required.length||g.excluded.length);
+}
+// flat list of terms/phrases to visually highlight (excludes the -excluded ones)
+function highlightTerms(parsed){
+  const out=[];
+  parsed.forEach(g=>{g.phrases.forEach(p=>out.push(p)); g.required.forEach(r=>out.push(r));});
+  return out;
+}
+function occ(h,t){return t?h.split(t).length-1:0;}
 
 function highlight(text, toks){
   const hts=hlToks(toks);
@@ -335,19 +372,25 @@ function buildBody(text, toks, selfCite){
   return out;
 }
 
-// build a relevance score + matched flag
-function score(sec, toks){
-  if(!toks.length) return 1;
-  const hay=(sec.citation+' '+sec.sec_title+' '+sec.chapter_title+' '+sec.text).toLowerCase();
+// Relevance score for a parsed query. Section matches if ANY OR-group matches;
+// within a group all required terms + phrases must be present and no excluded term.
+function scoreParsed(sec, parsed, scope){
+  if(!parsed.length) return 1;
   const title=(sec.citation+' '+sec.sec_title+' '+sec.chapter_title).toLowerCase();
-  let s=0;
-  for(const t of toks){
-    if(!hay.includes(t)) return 0;          // AND match
-    const inTitle=title.includes(t);
-    const occ=hay.split(t).length-1;
-    s += (inTitle?12:0) + occ;
+  const hay = scope==='title' ? title : (title+' '+sec.text.toLowerCase());
+  let best=0;
+  for(const g of parsed){
+    let ok=true, s=0;
+    for(const ex of g.excluded){ if(hay.includes(ex)){ok=false;break;} }
+    if(!ok) continue;
+    for(const ph of g.phrases){ if(!hay.includes(ph)){ok=false;break;} s+=(title.includes(ph)?12:0)+occ(hay,ph); }
+    if(!ok) continue;
+    for(const t of g.required){ if(!hay.includes(t)){ok=false;break;} s+=(title.includes(t)?12:0)+occ(hay,t); }
+    if(!ok) continue;
+    if(s===0) s=1;            // matched on phrase/exclusion only — still rank it
+    if(s>best) best=s;
   }
-  return s;
+  return best;
 }
 
 function snippet(text, toks, n=240){
@@ -378,30 +421,74 @@ function sortSecs(arr,mode,scored){
   return arr.slice().sort(cmp);
 }
 
-function render(){
-  const toks=tokens(state.q);
+// Filter + sort the sections for the current state. Shared by render() and export.
+function computeList(){
+  const parsed=parseQuery(state.q);
+  const searching=parsed.length>0;
   const scored=new Map();
   let list=SECTIONS.filter(s=>{
     if(state.chap && s.chapter_citation!==state.chap) return false;
     if(state.since && !(s.latest_amend && s.latest_amend>=state.since)) return false;
     if(state.crc==='any' && !s.crc_years.length) return false;
     if(state.crc && state.crc!=='any' && !s.crc_years.includes(+state.crc)) return false;
-    if(!toks.length){scored.set(s.id,0);return true;}
-    let sc;
-    if(state.scope==='title'){
-      const t=(s.citation+' '+s.sec_title+' '+s.chapter_title).toLowerCase();
-      sc = toks.every(tk=>t.includes(tk)) ? toks.reduce((a,tk)=>a+(t.split(tk).length-1),0)+10 : 0;
-    } else {
-      sc=score(s,toks);
-    }
+    if(!searching){scored.set(s.id,0);return true;}
+    const sc=scoreParsed(s,parsed,state.scope);
     scored.set(s.id,sc);
     return sc>0;
   });
-
   // When searching, default to relevance ranking unless the user picked a sort explicitly.
   let mode=state.sort;
-  if(toks.length && !state.sortTouched) mode='relevance';
+  if(searching && !state.sortTouched) mode='relevance';
   list=sortSecs(list,mode,scored);
+  return {list,parsed,searching,mode,toks:highlightTerms(parsed)};
+}
+
+// Download the sections currently shown (after search/filter/sort) as a plain-text file.
+function exportView(){
+  const {list,mode}=computeList();
+  const L=[];
+  L.push('CHARTER OF THE CITY OF NEW YORK — exported selection');
+  L.push(document.getElementById('currency').textContent);
+  const desc=[];
+  if(state.q) desc.push('search: '+state.q);
+  if(state.scope==='title') desc.push('scope: titles only');
+  if(state.chap) desc.push('chapter: '+state.chap);
+  if(state.since) desc.push('amended since '+state.since);
+  if(state.crc) desc.push('revision commission: '+(state.crc==='any'?'any change':state.crc));
+  desc.push('sort: '+(SORTLABEL[mode]||mode));
+  L.push('Selection: '+desc.join('; '));
+  L.push(list.length+' of '+SECTIONS.length+' sections');
+  L.push('Exported '+new Date().toISOString().slice(0,10)+' from the NYC Charter Explorer.');
+  L.push('Source: American Legal Publishing code library, via the BetaNYC nyc-charter-laws-rules dataset.');
+  L.push('For research and informational purposes only — not legal advice. Verify against the official code.');
+  L.push('');
+  L.push('='.repeat(72));
+  L.push('');
+  for(const s of list){
+    L.push(s.citation+(s.sec_title?' — '+s.sec_title:''));
+    L.push('In '+s.chapter_citation+': '+s.chapter_title);
+    if(s.crc && s.crc.length){
+      L.push('Charter Revision Commission changes: '+s.crc.map(t=>
+        t.year+' Q'+t.question+(t.action?' ('+t.action+')':'')).join('; '));
+    }
+    if(s.laws && s.laws.length) L.push('Local Laws on record: '+s.laws.join(', '));
+    L.push('');
+    L.push(s.text || '[No text in source.]');
+    L.push('');
+    L.push('-'.repeat(72));
+    L.push('');
+  }
+  const slug=(state.q?state.q.replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'').toLowerCase().slice(0,40):'selection')||'selection';
+  const blob=new Blob([L.join('\n')],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='nyc-charter-'+slug+'.txt';
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},0);
+}
+
+function render(){
+  const {list,toks,searching,mode}=computeList();
 
   elCount.textContent = list.length+' of '+SECTIONS.length+' sections';
   const filtering = !!(state.q || state.chap || state.since || state.crc);
@@ -431,7 +518,7 @@ function render(){
   }
   elMain.innerHTML=html;
   // auto-open when searching (so matches show), else collapsed
-  if(toks.length){
+  if(searching){
     document.querySelectorAll('article').forEach(a=>{
       a.classList.add('open');
       const h=a.querySelector('.sec-head'); if(h) h.setAttribute('aria-expanded','true');
@@ -451,6 +538,15 @@ function amendBadge(s){
 function lawList(s){
   if(!s.laws.length) return '';
   return `<div class="laws"><span class="laws-h">Amendment history (Local Laws on record):</span> ${s.laws.map(esc).join(' · ')}</div>`;
+}
+function amendTimeline(s){
+  const years=[...new Set(s.laws.map(c=>{const m=c.match(/(\d{4})/);return m?+m[1]:null;}).filter(Boolean))].sort((a,b)=>a-b);
+  if(years.length<2) return '';
+  const min=years[0], max=years[years.length-1], span=Math.max(1,max-min);
+  const dots=years.map(y=>`<span class="tl-dot" style="left:${((y-min)/span*100).toFixed(2)}%" title="Local Law enacted ${y}"></span>`).join('');
+  return `<div class="timeline"><span class="laws-h">Amendment timeline (${years.length} years, ${min}–${max})</span>
+    <div class="tl-track">${dots}</div>
+    <div class="tl-ax"><span>${min}</span><span>${max}</span></div></div>`;
 }
 function crcBadge(s){
   if(!s.crc_years.length) return '';
@@ -484,7 +580,7 @@ function card(s,toks){
       <span class="toggle" aria-hidden="true">▸</span>
     </div>
     ${snip}
-    <div class="sec-body">${body}${crcDetail(s)}${lawList(s)}</div>
+    <div class="sec-body">${body}${crcDetail(s)}${amendTimeline(s)}${lawList(s)}</div>
   </article>`;
 }
 
@@ -652,6 +748,7 @@ document.getElementById('since').addEventListener('change',e=>{state.since=+e.ta
 document.getElementById('crc').addEventListener('change',e=>{state.crc=e.target.value;render();window.scrollTo(0,0);});
 document.getElementById('expandAll').addEventListener('click',()=>document.querySelectorAll('article').forEach(a=>{a.classList.add('open');const h=a.querySelector('.sec-head');if(h)h.setAttribute('aria-expanded','true');}));
 document.getElementById('collapseAll').addEventListener('click',()=>document.querySelectorAll('article').forEach(a=>{a.classList.remove('open');const h=a.querySelector('.sec-head');if(h)h.setAttribute('aria-expanded','false');}));
+document.getElementById('exportBtn').addEventListener('click',exportView);
 document.getElementById('filterbar').addEventListener('click',e=>{
   const b=e.target.closest('[data-clear]'); if(!b) return;
   const k=b.dataset.clear;
