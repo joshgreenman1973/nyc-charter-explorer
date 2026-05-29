@@ -2,3 +2,7 @@ data/charter-raw.md
 refresh/node_modules/
 refresh/raw/
 refresh/out/
+refresh/auto-refresh.log
+refresh/launchd.out.log
+refresh/launchd.err.log
+.claude/
