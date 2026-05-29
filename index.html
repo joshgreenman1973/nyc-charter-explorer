@@ -33,7 +33,9 @@
   .ask:active{transform:translateY(1px)}
   .ask{font-size:14px;font-weight:600}
   .ask-sub{font-size:10.5px;font-weight:400;opacity:.85;letter-spacing:.01em}
-  @media (max-width:560px){.ask{margin-left:0;margin-top:8px;align-items:flex-start}}
+  .ask-note{flex-basis:100%;text-align:right;font-size:10.5px;color:var(--faint);margin-top:3px;max-width:46ch;margin-left:auto;line-height:1.35}
+  @media (max-width:560px){.ask{margin-left:0;margin-top:8px;align-items:flex-start}
+    .ask-note{text-align:left;margin-left:0}}
   .controls{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;align-items:center}
   .search{flex:1;min-width:240px;position:relative}
   .search input{width:100%;padding:11px 38px 11px 14px;font-size:16px;font-family:var(--sans);
@@ -191,6 +193,7 @@
         Ask the Charter a question
         <span class="ask-sub">plain-language Q&amp;A in NotebookLM &rarr;</span>
       </a>
+      <span class="ask-note">Note: the text inside the NotebookLM notebook is updated manually, so it may lag the latest amendments and not always be fully current. This page is the up-to-date source.</span>
     </div>
     <div class="controls">
       <div class="search">
