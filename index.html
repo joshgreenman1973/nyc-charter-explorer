@@ -144,6 +144,19 @@
   .annobar .abtn:hover{border-color:var(--accent);color:var(--accent)}
   .annobar .abtn.on{background:var(--accent-soft);border-color:#eccab7;color:var(--accent);font-weight:600}
   .annobar .acave{color:var(--faint);font-size:11px}
+  /* share menu */
+  .share-menu{display:none;flex-wrap:wrap;gap:6px;align-items:center;padding:9px 16px;
+    border-top:1px dashed var(--line-strong);background:var(--paper);font-size:12px}
+  article.share-open .share-menu{display:flex}
+  .share-menu .sm-label{color:var(--faint);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;margin-right:2px}
+  .smbtn{border:1px solid var(--line-strong);background:#fff;color:var(--ink-soft);border-radius:6px;
+    padding:3px 10px;cursor:pointer;font-size:12px}
+  .smbtn:hover{border-color:var(--accent);color:var(--accent)}
+  .smbtn.copied{color:#0b7a3b;border-color:#9ccfb0}
+  .share-sep{flex-basis:100%;height:0}
+  .sm-passage{display:contents}
+  ::selection{background:var(--mark)}
+  .pass-flash{background:var(--mark);border-radius:2px}
 
   /* sec-head as a button */
   .sec-head{width:100%;text-align:left;border:none;background:none;font-family:inherit;font-size:inherit;color:inherit}
@@ -641,11 +654,18 @@ function card(s,toks){
       <span class="sectools">
         <button class="stbtn${an.hl?' on':''}" data-act="hl" title="Highlight this section (saved in your browser)" aria-label="Highlight this section">highlight</button>
         <button class="stbtn${an.note?' on':''}" data-act="note" title="Add a private note (saved in your browser)" aria-label="Add a note">note</button>
-        <button class="stbtn" data-act="link" title="Copy a link to this section" aria-label="Copy a link to this section">link</button>
+        <button class="stbtn" data-act="share" title="Share a link to this section" aria-label="Share this section">share</button>
         <button class="stbtn" data-act="cite" title="Copy the citation" aria-label="Copy the citation">cite</button>
       </span>
       <span class="anno-dot" aria-hidden="true"></span>
       <span class="toggle" aria-hidden="true">▸</span>
+    </div>
+    <div class="share-menu">
+      <span class="sm-label">Share section</span>
+      <button class="smbtn" data-share="copy">Copy link</button>
+      <button class="smbtn" data-share="email">Email</button>
+      <button class="smbtn" data-share="tweet">Tweet</button>
+      <span class="sm-passage"></span>
     </div>
     ${snip}
     <div class="sec-body">${body}${crcDetail(s)}${amendTimeline(s)}${lawList(s)}${noteBox(s,an)}</div>
@@ -845,12 +865,120 @@ function restoreNotes(file){
   r.readAsText(file);
 }
 
+// ---- share (section + passage) ----
+function sectionURL(art){ return location.origin+location.pathname+'#'+art.id; }
+function passageURL(art,selText){
+  const t=(selText||'').replace(/\s+/g,' ').trim().slice(0,300);
+  return location.origin+location.pathname+'#'+art.id+(t?'&p='+encodeURIComponent(t):'');
+}
+function shareLabel(art){
+  const cite=art.querySelector('.sec-head').dataset.cite;
+  const title=(art.querySelector('.sec-title')?art.querySelector('.sec-title').textContent:'').trim();
+  return 'New York City Charter '+cite+(title?' — '+title:'');
+}
+// Track the last non-empty selection per article, so it survives the click on
+// the share button (which can collapse the live selection in some browsers).
+let LAST_SEL={id:'',text:''};
+document.addEventListener('selectionchange',()=>{
+  const sel=window.getSelection();
+  if(!sel || sel.isCollapsed || !sel.rangeCount) return;
+  const node=sel.getRangeAt(0).commonAncestorContainer;
+  const el=node.nodeType===1?node:node.parentElement;
+  const art=el?el.closest('article'):null;
+  if(art && sel.toString().trim()) LAST_SEL={id:art.id,text:sel.toString()};
+});
+function selectionInArticle(art){
+  const sel=window.getSelection();
+  if(sel && !sel.isCollapsed && sel.rangeCount){
+    const r=sel.getRangeAt(0);
+    if(art.contains(r.commonAncestorContainer) && sel.toString().trim()) return sel.toString();
+  }
+  if(LAST_SEL.id===art.id && LAST_SEL.text.trim()) return LAST_SEL.text;
+  return '';
+}
+function openShare(btn){
+  const art=btn.closest('article');
+  document.querySelectorAll('article.share-open').forEach(a=>{if(a!==art)a.classList.remove('share-open');});
+  const willOpen=!art.classList.contains('share-open');
+  art.classList.toggle('share-open',willOpen);
+  btn.classList.toggle('on',willOpen);
+  if(!willOpen) return;
+  const pass=art.querySelector('.sm-passage');
+  const selText=selectionInArticle(art);
+  art._selText=selText;
+  pass.innerHTML = selText
+    ? '<span class="share-sep"></span><span class="sm-label">Selected passage</span>'+
+      '<button class="smbtn" data-share="copy" data-passage="1">Copy link</button>'+
+      '<button class="smbtn" data-share="email" data-passage="1">Email</button>'+
+      '<button class="smbtn" data-share="tweet" data-passage="1">Tweet</button>'
+    : '';
+}
+function copyToClip(btn,val){
+  const done=()=>{ if(!btn.dataset.label)btn.dataset.label=btn.textContent;
+    btn.textContent='copied'; btn.classList.add('copied');
+    clearTimeout(btn._t); btn._t=setTimeout(()=>{btn.textContent=btn.dataset.label;btn.classList.remove('copied');},1100); };
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(val).then(done).catch(done);
+  else done();
+}
+function doShare(btn){
+  const art=btn.closest('article');
+  const isPassage=btn.dataset.passage==='1';
+  const selText=isPassage?(art._selText||''):'';
+  const url=isPassage?passageURL(art,selText):sectionURL(art);
+  const kind=btn.dataset.share, label=shareLabel(art);
+  if(kind==='copy'){ copyToClip(btn,url); }
+  else if(kind==='email'){
+    const subj=label;
+    const body=(isPassage&&selText?'"'+selText.replace(/\s+/g,' ').trim()+'"\n\n':'')+label+'\n'+url;
+    window.location.href='mailto:?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
+  } else if(kind==='tweet'){
+    window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(label)+'&url='+encodeURIComponent(url),'_blank','noopener');
+  }
+}
+// Locate a Range for an exact passage inside an element (for incoming passage links).
+function findTextRange(container,text){
+  if(!text) return null;
+  const walker=document.createTreeWalker(container,NodeFilter.SHOW_TEXT,null);
+  const nodes=[]; let full='';
+  while(walker.nextNode()){ nodes.push([walker.currentNode,full.length]); full+=walker.currentNode.nodeValue; }
+  const cands=[text, text.replace(/\s+/g,' ').trim()];
+  for(const cand of cands){
+    const idx=full.indexOf(cand); if(idx<0) continue;
+    const end=idx+cand.length;
+    const locate=pos=>{ for(const [node,start] of nodes){ if(pos<=start+node.nodeValue.length) return [node,pos-start]; }
+      const last=nodes[nodes.length-1]; return [last[0],last[0].nodeValue.length]; };
+    const [sn,so]=locate(idx), [en,eo]=locate(end);
+    const r=document.createRange(); r.setStart(sn,so); r.setEnd(en,eo); return r;
+  }
+  return null;
+}
+function gotoPassage(anchor,passage){
+  const el=document.getElementById(anchor);
+  if(!el){ resetAll(); render(); }
+  const art=document.getElementById(anchor); if(!art) return;
+  art.classList.add('open');
+  const h=art.querySelector('.sec-head'); if(h) h.setAttribute('aria-expanded','true');
+  const body=art.querySelector('.sec-body');
+  const r=passage?findTextRange(body,passage):null;
+  if(r){
+    const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    const target=(r.startContainer.parentElement)||art;
+    target.scrollIntoView({behavior:'smooth',block:'center'});
+  } else {
+    art.scrollIntoView({behavior:'smooth',block:'center'});
+    art.classList.remove('flash'); void art.offsetWidth; art.classList.add('flash');
+  }
+}
+
 elMain.addEventListener('click',e=>{
+  const sm=e.target.closest('.smbtn');
+  if(sm){ e.stopPropagation(); doShare(sm); return; }
   const st=e.target.closest('.stbtn');
   if(st){ e.stopPropagation();
     const act=st.dataset.act;
     if(act==='hl') toggleHL(st);
     else if(act==='note') openNote(st);
+    else if(act==='share') openShare(st);
     else handleCopy(st);
     return;
   }
@@ -945,9 +1073,16 @@ buildToc();
 restoreFromUrl();
 render();
 buildRejectedPanel();
-// deep link to a section, e.g. #sec__197_c
+// deep link to a section (e.g. #sec__197_c) or a passage (#sec__197_c&p=<text>)
 if(location.hash && /^#sec_/.test(location.hash)){
-  setTimeout(()=>gotoSection(location.hash.slice(1)),60);
+  const raw=location.hash.slice(1);
+  const amp=raw.indexOf('&p=');
+  if(amp>=0){
+    const anchor=raw.slice(0,amp), passage=decodeURIComponent(raw.slice(amp+3));
+    setTimeout(()=>gotoPassage(anchor,passage),80);
+  } else {
+    setTimeout(()=>gotoSection(raw),60);
+  }
 }
 </script>
 </body>
