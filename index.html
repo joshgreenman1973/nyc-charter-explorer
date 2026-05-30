@@ -4,15 +4,46 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NYC Charter Explorer</title>
+<script>
+/* set theme before paint to avoid a flash */
+(function(){try{var p=localStorage.getItem('charter_theme')||'auto';
+var d=p==='dark'||(p==='auto'&&matchMedia('(prefers-color-scheme:dark)').matches);
+document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
+</script>
 <style>
   :root{
     --ink:#16130d; --ink-soft:#4a443a; --faint:#8a8276;
     --paper:#f7f4ec; --card:#fffdf8; --line:#e2dccd; --line-strong:#c9c0ac;
     --accent:#9a3412; --accent-soft:#fae6da; --mark:#ffe08a;
     --rule:#d8d0bd;
+    --field:#ffffff; --ok:#0b7a3b; --hl-head:#fffaf0; --note-bg:#fffdf3;
+    --ask-ink:#ffffff; --accent-hover:#7e2a0e;
     --sans:"Helvetica Neue",Arial,sans-serif;
     --serif:Georgia,"Times New Roman",serif;
   }
+  html[data-theme="dark"]{
+    --ink:#e8e3d6; --ink-soft:#b3ac9c; --faint:#8a8373;
+    --paper:#14120d; --card:#1c1a13; --line:#2f2b20; --line-strong:#48412f;
+    --accent:#ec926a; --accent-soft:#3a261a; --mark:#6a5316;
+    --rule:#48412f;
+    --field:#221f17; --ok:#62cf8b; --hl-head:#2a2412; --note-bg:#221f14;
+    --ask-ink:#1a130c; --accent-hover:#d97a4f;
+    color-scheme:dark;
+  }
+  /* dark overrides for the colored badge/accent spots that aren't on tokens */
+  html[data-theme="dark"] .amend.hot{border-color:#5a3a28}
+  html[data-theme="dark"] .amend.eff{color:#e3c87a;background:#2c2410;border-color:#4a3c18}
+  html[data-theme="dark"] .crc-badge{color:#8fd4da;background:#123034;border-color:#1f4a50}
+  html[data-theme="dark"] .crc-detail{color:#9fd2d8;background:#10282b;border-color:#1f4a50}
+  html[data-theme="dark"] .crc-detail .passed{color:#bfe7eb;background:#16383c}
+  html[data-theme="dark"] .crc-detail .act.added{color:#7fd69b;background:#13301f;border-color:#1f4a32}
+  html[data-theme="dark"] .crc-detail .act.amended{color:#e3c87a;background:#2c2410;border-color:#4a3c18}
+  html[data-theme="dark"] .crc-detail .act.repealed{color:#e8a0a0;background:#33181a;border-color:#5a2a2a}
+  html[data-theme="dark"] .rejected .rtag{color:#e8a0a0;background:#33181a;border-color:#5a2a2a}
+  html[data-theme="dark"] .fchip .x:hover{background:#5a3a28}
+  html[data-theme="dark"] .annobar .abtn.on{border-color:#5a3a28}
+  html[data-theme="dark"] a.xref{border-bottom-color:#7a4a32}
+  html[data-theme="dark"] .smbtn.copied{border-color:#2f6b48}
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
@@ -33,7 +64,8 @@
   .ask{margin-left:auto;display:inline-flex;flex-direction:column;align-items:flex-end;gap:0;
     text-decoration:none;background:var(--accent);color:#fff;padding:7px 14px;border-radius:8px;
     line-height:1.2;box-shadow:0 1px 2px rgba(0,0,0,.12);transition:background .15s,transform .05s}
-  .ask:hover{background:#7e2a0e}
+  .ask{color:var(--ask-ink)}
+  .ask:hover{background:var(--accent-hover)}
   .ask:active{transform:translateY(1px)}
   .ask{font-size:14px;font-weight:600}
   .ask-sub{font-size:10.5px;font-weight:400;opacity:.85;letter-spacing:.01em}
@@ -44,13 +76,38 @@
   .search{flex:1;min-width:240px;position:relative}
   .search input{width:100%;padding:11px 38px 11px 14px;font-size:16px;font-family:var(--sans);
     border:1px solid var(--line-strong);border-radius:8px;background:var(--paper);color:var(--ink)}
-  .search input:focus{outline:none;border-color:var(--accent);background:#fff}
+  .search input:focus{outline:none;border-color:var(--accent);background:var(--field)}
   .search .clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);
     border:none;background:none;font-size:18px;color:var(--faint);cursor:pointer;padding:4px 8px;display:none}
   select{padding:10px 12px;font-size:14px;font-family:var(--sans);border:1px solid var(--line-strong);
     border-radius:8px;background:var(--paper);color:var(--ink);cursor:pointer}
   label.ctl{font-size:12px;color:var(--faint);display:flex;flex-direction:column;gap:3px}
   .count{font-size:13px;color:var(--ink-soft);margin-left:auto;white-space:nowrap}
+
+  /* header utilities (theme + density toggles) */
+  .titlewrap{display:flex;flex-direction:column;gap:2px;margin-right:auto}
+  .util{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .ubtn{font-size:12px;border:1px solid var(--line-strong);background:var(--paper);color:var(--ink-soft);
+    border-radius:7px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+  .ubtn:hover{border-color:var(--accent);color:var(--accent)}
+  /* advanced filters: inline on desktop, collapsible drawer on mobile */
+  .advfilters{display:contents}
+  .filters-btn{display:none}
+  @media (max-width:700px){
+    .filters-btn{display:inline-block}
+    .advfilters{display:none;width:100%;flex-wrap:wrap;gap:10px}
+    .controls.adv-open .advfilters{display:flex}
+    .controls.adv-open .filters-btn{border-color:var(--accent);color:var(--accent)}
+    label.ctl{flex:1 1 44%}
+    label.ctl select{width:100%}
+  }
+  /* compact (density) mode */
+  body.dense article{margin-bottom:7px}
+  body.dense .sec-head{padding:8px 14px;gap:5px 9px}
+  body.dense .cite{font-size:14px;min-width:48px}
+  body.dense .sec-title{font-size:14px}
+  body.dense .sec-body{font-size:14.5px;line-height:1.62;padding:0 14px 13px}
+  body.dense .chapter-head{margin:20px 0 4px;font-size:17px}
 
   /* ---- layout ---- */
   .wrap{max-width:1180px;margin:0 auto;padding:20px;display:grid;
@@ -121,28 +178,28 @@
   .stbtn{border:none;background:none;color:var(--faint);cursor:pointer;font-size:13px;padding:3px 5px;
     border-radius:6px;line-height:1}
   .stbtn:hover{background:var(--paper);color:var(--accent)}
-  .stbtn.copied{color:#0b7a3b}
+  .stbtn.copied{color:var(--ok)}
   /* personal annotations (stored in this browser) */
   .stbtn[data-act="hl"].on{color:#b8860b;font-weight:600}
   .stbtn[data-act="note"].on{color:var(--accent);font-weight:600}
   article.hled{box-shadow:inset 4px 0 0 var(--mark)}
-  article.hled .sec-head{background:#fffaf0}
+  article.hled .sec-head{background:var(--hl-head)}
   .anno-dot{display:none;width:7px;height:7px;border-radius:50%;background:var(--mark);
     align-self:center;margin-left:2px;border:1px solid #d9b84a}
   article.hled .anno-dot,article.noted .anno-dot{display:inline-block}
   article.noted:not(.hled) .anno-dot{background:var(--accent-soft);border-color:#e0a07f}
   .note-wrap{display:none;margin-top:14px;border:1px solid var(--line-strong);border-left:4px solid var(--mark);
-    border-radius:6px;background:#fffdf3;padding:8px 10px}
+    border-radius:6px;background:var(--note-bg);padding:8px 10px}
   article.note-open .note-wrap,article.noted .note-wrap{display:block}
   .note-wrap label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
     color:var(--faint);margin-bottom:4px}
   .note-ta{width:100%;box-sizing:border-box;min-height:54px;resize:vertical;font:inherit;font-size:13px;
-    border:1px solid var(--line);border-radius:5px;padding:6px 8px;background:#fff;color:var(--ink)}
+    border:1px solid var(--line);border-radius:5px;padding:6px 8px;background:var(--field);color:var(--ink)}
   .note-ta:focus{outline:none;border-color:var(--accent)}
   .note-meta{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
   .note-meta .nclear{border:none;background:none;color:var(--faint);font-size:11px;cursor:pointer;padding:2px 4px}
   .note-meta .nclear:hover{color:var(--accent)}
-  .note-meta .nsaved{font-size:10.5px;color:#0b7a3b;opacity:0;transition:opacity .2s}
+  .note-meta .nsaved{font-size:10.5px;color:var(--ok);opacity:0;transition:opacity .2s}
   .note-meta .nsaved.show{opacity:1}
   .annobar{display:none;gap:10px;margin-top:10px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--ink-soft)}
   .annobar.on{display:flex}
@@ -156,10 +213,10 @@
     border-top:1px dashed var(--line-strong);background:var(--paper);font-size:12px}
   article.share-open .share-menu{display:flex}
   .share-menu .sm-label{color:var(--faint);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;margin-right:2px}
-  .smbtn{border:1px solid var(--line-strong);background:#fff;color:var(--ink-soft);border-radius:6px;
+  .smbtn{border:1px solid var(--line-strong);background:var(--field);color:var(--ink-soft);border-radius:6px;
     padding:3px 10px;cursor:pointer;font-size:12px}
   .smbtn:hover{border-color:var(--accent);color:var(--accent)}
-  .smbtn.copied{color:#0b7a3b;border-color:#9ccfb0}
+  .smbtn.copied{color:var(--ok);border-color:#9ccfb0}
   .share-sep{flex-basis:100%;height:0}
   .sm-passage{display:contents}
   ::selection{background:var(--mark)}
@@ -222,7 +279,7 @@
   .toolbtns{display:flex;gap:8px}
   .tbtn{font-size:12px;border:1px solid var(--line-strong);background:var(--paper);color:var(--ink-soft);
     border-radius:7px;padding:8px 11px;cursor:pointer}
-  .tbtn:hover{background:#fff;border-color:var(--accent);color:var(--accent)}
+  .tbtn:hover{background:var(--field);border-color:var(--accent);color:var(--accent)}
 
   @media (max-width:860px){
     .wrap{grid-template-columns:1fr;padding:14px}
@@ -236,19 +293,27 @@
 <header>
   <div class="bar">
     <div class="titlerow">
-      <h1>Charter of the City of New York</h1>
-      <span class="currency" id="currency"></span>
-      <a class="ask" href="https://notebooklm.google.com/notebook/c7286ff7-1768-4d9f-adae-38ba206388d9" target="_blank" rel="noopener">
-        Ask the Charter a question
-        <span class="ask-sub">plain-language Q&amp;A in NotebookLM &rarr;</span>
-      </a>
-      <span class="ask-note">Note: the text inside the NotebookLM notebook is updated manually, so it may lag the latest amendments and not always be fully current. This page is the up-to-date source.</span>
+      <div class="titlewrap">
+        <h1>Charter of the City of New York</h1>
+        <span class="currency" id="currency"></span>
+      </div>
+      <div class="util">
+        <button class="ubtn" id="densityToggle" title="Toggle a denser layout" aria-pressed="false">Compact</button>
+        <button class="ubtn" id="themeToggle" title="Switch light / dark / auto theme">Theme: auto</button>
+        <a class="ask" href="https://notebooklm.google.com/notebook/c7286ff7-1768-4d9f-adae-38ba206388d9" target="_blank" rel="noopener">
+          Ask the Charter a question
+          <span class="ask-sub">plain-language Q&amp;A in NotebookLM &rarr;</span>
+        </a>
+      </div>
+      <span class="ask-note">Note: the NotebookLM notebook is updated manually, so it may lag the latest amendments — this page is the up-to-date source.</span>
     </div>
     <div class="controls">
       <div class="search">
         <input id="q" type="search" placeholder="Search the full text of the Charter — e.g. mayor veto, land use review, conflicts of interest" autocomplete="off" spellcheck="false">
         <button class="clear" id="clear" title="Clear">&times;</button>
       </div>
+      <button class="tbtn filters-btn" id="filtersToggle" aria-expanded="false">Filters</button>
+      <div class="advfilters">
       <label class="ctl">scope
         <select id="scope">
           <option value="all">Title + text</option>
@@ -286,6 +351,7 @@
           <option value="2018">2018 commission</option>
         </select>
       </label>
+      </div>
       <div class="toolbtns">
         <button class="tbtn" id="expandAll">Expand</button>
         <button class="tbtn" id="collapseAll">Collapse</button>
@@ -325,6 +391,8 @@
   independently re-extracted and checked against the source documents. Proposals that <em>failed</em> at the ballot (2024 Q6 MWBE/modernization;
   2025 Q6 even-year elections) did not change the Charter and are not tagged. Section 1152 (the Charter's effective-date section) is touched by
   nearly every proposal. Sources: official CRC reports at nyc.gov/site/charter; see <code>data/crc-map.json</code> in the repository for the full mapping and source URLs.
+  <br><br>
+  <a href="https://github.com/joshgreenman1973/nyc-charter-explorer/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Change history</a> — a dated log of when the Charter text in this tool last changed.
 </footer>
 
 <script src="charter-data.js"></script>
@@ -1031,6 +1099,43 @@ document.getElementById('crc').addEventListener('change',e=>{state.crc=e.target.
 document.getElementById('expandAll').addEventListener('click',()=>document.querySelectorAll('article').forEach(a=>{a.classList.add('open');const h=a.querySelector('.sec-head');if(h)h.setAttribute('aria-expanded','true');}));
 document.getElementById('collapseAll').addEventListener('click',()=>document.querySelectorAll('article').forEach(a=>{a.classList.remove('open');const h=a.querySelector('.sec-head');if(h)h.setAttribute('aria-expanded','false');}));
 document.getElementById('exportBtn').addEventListener('click',exportView);
+
+// ---- theme (light / dark / auto) ----
+const THEME_KEY='charter_theme';
+const themeBtn=document.getElementById('themeToggle');
+const themeMq=window.matchMedia('(prefers-color-scheme:dark)');
+let themePref=localStorage.getItem(THEME_KEY)||'auto';
+function applyTheme(pref){
+  const resolved = pref==='auto' ? (themeMq.matches?'dark':'light') : pref;
+  document.documentElement.dataset.theme=resolved;
+  themeBtn.textContent='Theme: '+pref;
+}
+applyTheme(themePref);
+themeMq.addEventListener('change',()=>{ if(themePref==='auto') applyTheme('auto'); });
+themeBtn.addEventListener('click',()=>{
+  themePref = themePref==='auto' ? 'light' : themePref==='light' ? 'dark' : 'auto';
+  localStorage.setItem(THEME_KEY,themePref); applyTheme(themePref);
+});
+
+// ---- density (comfortable / compact) ----
+const DENSITY_KEY='charter_density';
+const densBtn=document.getElementById('densityToggle');
+function applyDensity(on){
+  document.body.classList.toggle('dense',on);
+  densBtn.textContent=on?'Comfortable':'Compact';
+  densBtn.setAttribute('aria-pressed',on?'true':'false');
+}
+let dense=localStorage.getItem(DENSITY_KEY)==='1';
+applyDensity(dense);
+densBtn.addEventListener('click',()=>{ dense=!dense; localStorage.setItem(DENSITY_KEY,dense?'1':'0'); applyDensity(dense); });
+
+// ---- mobile filters drawer ----
+const filtersBtn=document.getElementById('filtersToggle');
+filtersBtn.addEventListener('click',()=>{
+  const controls=filtersBtn.closest('.controls');
+  const open=controls.classList.toggle('adv-open');
+  filtersBtn.setAttribute('aria-expanded',open?'true':'false');
+});
 document.getElementById('filterbar').addEventListener('click',e=>{
   const b=e.target.closest('[data-clear]'); if(!b) return;
   const k=b.dataset.clear;

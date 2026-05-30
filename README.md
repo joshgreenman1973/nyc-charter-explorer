@@ -6,6 +6,7 @@ A searchable, sortable web version of the **Charter of the City of New York**, p
 
 ## What's here
 
+- **Display options.** A theme toggle (auto / light / dark — respects your system setting by default), a compact-density toggle, and, on small screens, a "Filters" button that collapses the advanced filters into a drawer. All preferences persist in the browser.
 - **`index.html`** — the explorer. Full text of the Charter (770 sections, 77 chapters), full-text + title search with relevance ranking, sort by chapter / section number / length / relevance, per-chapter filtering, sticky chapter table of contents. Data is bundled in `charter-data.js`, so the page also works by double-clicking the file locally — no server required.
 - **`NYC-Charter-for-NotebookLM.md`** / **`.txt`** — the entire Charter as one structured document (table of contents + every section under its chapter). ~318,000 words, under NotebookLM's 500k-word-per-source limit. Drop either file into a NotebookLM notebook as a source.
 - **`build.py`** — regenerates `charter-data.json`, `charter-data.js`, and the NotebookLM files from the raw source in `data/`.
