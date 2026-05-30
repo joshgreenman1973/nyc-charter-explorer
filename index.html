@@ -178,6 +178,10 @@ document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
   .sec-body p{margin:14px 0 0;white-space:pre-wrap}
   .sec-body .reading{padding-top:6px}
   mark{background:var(--mark);color:inherit;border-radius:2px;padding:0 1px}
+  /* user passage highlights (persisted, click to remove) */
+  mark.uhl{cursor:pointer;box-shadow:inset 0 -2px 0 rgba(0,0,0,.14)}
+  mark.uhl:hover{outline:1px solid var(--accent);outline-offset:1px}
+  html[data-theme="dark"] mark.uhl{box-shadow:inset 0 -2px 0 rgba(255,255,255,.22)}
 
   /* in-text cross-reference links */
   a.xref{color:var(--accent);text-decoration:none;border-bottom:1px dotted #d3a892;cursor:pointer}
@@ -203,8 +207,8 @@ document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
   article.hled .sec-head{background:var(--hl-head)}
   .anno-dot{display:none;width:7px;height:7px;border-radius:50%;background:var(--mark);
     align-self:center;margin-left:2px;border:1px solid #d9b84a}
-  article.hled .anno-dot,article.noted .anno-dot{display:inline-block}
-  article.noted:not(.hled) .anno-dot{background:var(--accent-soft);border-color:#e0a07f}
+  article.hled .anno-dot,article.noted .anno-dot,article.marked .anno-dot{display:inline-block}
+  article.noted:not(.hled):not(.marked) .anno-dot{background:var(--accent-soft);border-color:#e0a07f}
   .note-wrap{display:none;margin-top:14px;border:1px solid var(--line-strong);border-left:4px solid var(--mark);
     border-radius:6px;background:var(--note-bg);padding:8px 10px}
   article.note-open .note-wrap,article.noted .note-wrap{display:block}
@@ -383,7 +387,7 @@ document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
     <div class="filterbar" id="filterbar"></div>
     <div class="annobar" id="annobar"></div>
     <input type="file" id="annoFile" accept="application/json,.json" style="display:none">
-    <div class="hint"><b>Search:</b> <code>"quotes"</code> for an exact phrase, <code>-word</code> to exclude, <code>OR</code> to match either. &nbsp;<b>Each section:</b> <code>highlight</code>, <code>note</code> or <code>share</code> it — highlights and notes save privately in this browser.</div>
+    <div class="hint"><b>Search:</b> <code>"quotes"</code> for an exact phrase, <code>-word</code> to exclude, <code>OR</code> to match either. &nbsp;<b>Each section:</b> select text and <code>highlight</code> just that passage (or <code>highlight</code> with nothing selected for the whole section), add a <code>note</code>, or <code>share</code> it — saved privately in this browser.</div>
   </div>
 </header>
 
@@ -494,9 +498,23 @@ const ANNO_KEY='charter_anno_v1';
 let ANNO=(()=>{try{return JSON.parse(localStorage.getItem(ANNO_KEY))||{};}catch(e){return {};}})();
 function annoFor(id){return ANNO[id]||{};}
 function persistAnno(){try{localStorage.setItem(ANNO_KEY,JSON.stringify(ANNO));}catch(e){}}
-function writeAnno(id,a){if(a.note||a.hl)ANNO[id]=a;else delete ANNO[id];persistAnno();}
+function writeAnno(id,a){
+  if(a.marks && !a.marks.length) delete a.marks;
+  if(a.note || a.hl || (a.marks && a.marks.length)) ANNO[id]=a; else delete ANNO[id];
+  persistAnno();
+}
 function setNote(id,text){const a=Object.assign({},ANNO[id]);text=(text||'').trim();if(text)a.note=text;else delete a.note;writeAnno(id,a);}
 function setHL(id,on){const a=Object.assign({},ANNO[id]);if(on)a.hl=1;else delete a.hl;writeAnno(id,a);}
+// passage highlights: a list of exact text strings within the section
+function addMark(id,text){
+  text=(text||'').replace(/\s+/g,' ').trim(); if(!text) return;
+  const a=Object.assign({},ANNO[id]); const marks=(a.marks||[]).slice();
+  if(!marks.includes(text)) marks.push(text);
+  a.marks=marks; writeAnno(id,a);
+}
+function removeMark(id,text){
+  const a=Object.assign({},ANNO[id]); a.marks=(a.marks||[]).filter(m=>m!==text); writeAnno(id,a);
+}
 function annoCount(){return Object.keys(ANNO).length;}
 
 function highlight(text, toks){
@@ -634,6 +652,7 @@ function exportView(){
     if(s.laws && s.laws.length) L.push('Local Laws on record: '+s.laws.join(', '));
     const an=annoFor(s.id);
     if(an.hl) L.push('** highlighted **');
+    if(an.marks && an.marks.length) an.marks.forEach(m=>L.push('Highlighted passage: "'+m+'"'));
     if(an.note) L.push('Your note: '+an.note);
     L.push('');
     L.push(s.text || '[No text in source.]');
@@ -681,6 +700,13 @@ function render(){
     for(const s of list) html+=card(s,toks,showChip);
   }
   elMain.innerHTML=html;
+  // re-apply saved passage highlights to the freshly rendered bodies
+  elMain.querySelectorAll('article').forEach(a=>{
+    const an=ANNO[a.dataset.id];
+    if(an && an.marks && an.marks.length){
+      const body=a.querySelector('.reading'); if(body) applyMarks(body, an.marks);
+    }
+  });
   // auto-open when searching (so matches show) or when viewing only annotations
   if(searching||state.anno){
     document.querySelectorAll('article').forEach(a=>{
@@ -736,7 +762,7 @@ function noteBox(s,an){
 function card(s,toks,showChip){
   const title = s.sec_title || s.heading;
   const an = annoFor(s.id);
-  const cls = [an.hl?'hled':'', an.note?'noted':''].filter(Boolean).join(' ');
+  const cls = [an.hl?'hled':'', an.note?'noted':'', (an.marks&&an.marks.length)?'marked':''].filter(Boolean).join(' ');
   const body = s.text ? `<div class="reading"><p>${buildBody(s.text,toks,s.citation)}</p></div>` : '<p style="color:var(--faint)">No text in source.</p>';
   const snip = (toks.length && s.text) ? `<div class="snip">${snippet(s.text,toks)}</div>` : '';
   return `<article id="sec_${cssId(s.citation)}" data-id="${esc(String(s.id))}"${cls?` class="${cls}"`:''}>
@@ -747,7 +773,7 @@ function card(s,toks,showChip){
       ${amendBadge(s)}
       ${showChip?`<span class="chip">${esc(s.chapter_citation)}</span>`:''}
       <span class="sectools">
-        <button class="stbtn${an.hl?' on':''}" data-act="hl" title="Highlight this section (saved in your browser)" aria-label="Highlight this section">highlight</button>
+        <button class="stbtn${(an.hl||(an.marks&&an.marks.length))?' on':''}" data-act="hl" title="Select text first to highlight just that passage, or click with nothing selected to highlight the whole section (saved in your browser)" aria-label="Highlight">highlight</button>
         <button class="stbtn${an.note?' on':''}" data-act="note" title="Add a private note (saved in your browser)" aria-label="Add a note">note</button>
         <button class="stbtn" data-act="share" title="Share a link to this section" aria-label="Share this section">share</button>
         <button class="stbtn" data-act="cite" title="Copy the citation" aria-label="Copy the citation">cite</button>
@@ -904,9 +930,46 @@ function gotoSection(anchor){
 // ---- annotation interactions ----
 function toggleHL(btn){
   const art=btn.closest('article'); const id=art.dataset.id;
+  // if text is selected within this section, highlight just that passage;
+  // otherwise toggle a highlight on the whole section.
+  const sel=selectionInArticle(art);
+  if(sel){
+    addMark(id,sel);
+    const body=art.querySelector('.reading'); if(body) applyMarks(body, annoFor(id).marks||[]);
+    art.classList.add('marked'); btn.classList.add('on');
+    const s=window.getSelection(); if(s) s.removeAllRanges(); LAST_SEL={id:'',text:''};
+    updateAnnoBar(); return;
+  }
   const on=!annoFor(id).hl; setHL(id,on);
-  btn.classList.toggle('on',on); art.classList.toggle('hled',on);
+  art.classList.toggle('hled',on);
+  btn.classList.toggle('on', on || !!(annoFor(id).marks||[]).length);
   updateAnnoBar();
+}
+// wrap each saved passage string inside the body with a removable highlight
+function applyMarks(body, marks){
+  // clear any existing user highlights first (unwrap), then re-apply
+  body.querySelectorAll('mark.uhl').forEach(m=>{const t=document.createTextNode(m.textContent);m.replaceWith(t);});
+  body.normalize();
+  (marks||[]).forEach(text=>{
+    const range=findTextRange(body, text);
+    if(range) wrapRange(range,'uhl',text);
+  });
+}
+function wrapRange(range,cls,markText){
+  const root=range.commonAncestorContainer.nodeType===1?range.commonAncestorContainer:range.commonAncestorContainer.parentNode;
+  const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null);
+  const nodes=[]; let n;
+  while(n=walker.nextNode()){ if(range.intersectsNode(n)) nodes.push(n); }
+  nodes.forEach(node=>{
+    const start = node===range.startContainer ? range.startOffset : 0;
+    const end = node===range.endContainer ? range.endOffset : node.nodeValue.length;
+    if(start>=end) return;
+    const r=document.createRange(); r.setStart(node,start); r.setEnd(node,end);
+    const mk=document.createElement('mark'); mk.className=cls;
+    mk.title='Click to remove this highlight';
+    if(markText!=null) mk.dataset.mark=markText;
+    try{ r.surroundContents(mk); }catch(e){}
+  });
 }
 function openNote(btn){
   const art=btn.closest('article');
@@ -950,7 +1013,12 @@ function restoreNotes(file){
       Object.keys(items).forEach(id=>{
         const it=items[id]||{}; const a=Object.assign({},ANNO[id]);
         if(it.note){ a.note=String(it.note); } if(it.hl){ a.hl=1; }
-        if(a.note||a.hl){ ANNO[id]=a; added++; }
+        if(Array.isArray(it.marks) && it.marks.length){
+          const merged=(a.marks||[]).slice();
+          it.marks.forEach(m=>{ m=String(m); if(!merged.includes(m)) merged.push(m); });
+          a.marks=merged;
+        }
+        if(a.note||a.hl||(a.marks&&a.marks.length)){ ANNO[id]=a; added++; }
       });
       persistAnno();
     }catch(e){ alert('Sorry — that file could not be read as a notes backup.'); return; }
@@ -1079,6 +1147,15 @@ elMain.addEventListener('click',e=>{
   }
   const nc=e.target.closest('.nclear');
   if(nc){ e.stopPropagation(); clearNote(nc); return; }
+  const uh=e.target.closest('mark.uhl');
+  if(uh){ e.stopPropagation();
+    const art=uh.closest('article'), id=art.dataset.id, body=art.querySelector('.reading');
+    removeMark(id, uh.dataset.mark || uh.textContent.replace(/\s+/g,' ').trim());
+    applyMarks(body, annoFor(id).marks||[]);
+    if(!(annoFor(id).marks||[]).length){ art.classList.remove('marked');
+      const hb=art.querySelector('.stbtn[data-act="hl"]'); if(hb) hb.classList.toggle('on', !!annoFor(id).hl); }
+    updateAnnoBar(); return;
+  }
   const xr=e.target.closest('a.xref');
   if(xr){ e.preventDefault(); gotoSection(xr.dataset.anchor); return; }
   const head=e.target.closest('.sec-head');
