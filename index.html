@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NYC Charter Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap" rel="stylesheet">
 <script>
 /* set theme before paint to avoid a flash */
 (function(){try{var p=localStorage.getItem('charter_theme')||'auto';
@@ -59,14 +62,27 @@ document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
          border-bottom:1px solid var(--line-strong);box-shadow:0 1px 0 rgba(0,0,0,.02)}
   .bar{max-width:1180px;margin:0 auto;padding:14px 20px}
   .titlerow{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
-  h1{font-family:var(--serif);font-weight:600;font-size:22px;margin:0;letter-spacing:-.01em}
+  /* comic-book "POW" title (font falls back to serif if the webfont can't load) */
+  h1{font-family:"Luckiest Guy",var(--serif);font-weight:400;font-size:clamp(25px,3.4vw,40px);
+    margin:0;line-height:1.14;letter-spacing:.012em;color:#ffd23d;
+    -webkit-text-stroke:2.4px #16130d;text-stroke:2.4px #16130d;
+    text-shadow:4px 4px 0 var(--accent);transform:rotate(-2deg);transform-origin:left center;
+    display:inline-block;align-self:flex-start;padding:3px 6px 5px 2px}
+  h1 .bang{color:#e23b2e;-webkit-text-stroke:2.4px #16130d;text-stroke:2.4px #16130d}
+  h1::before{content:"";position:absolute;left:-14px;top:-10px;width:62%;height:150%;z-index:-1;
+    background:radial-gradient(ellipse at 42% 50%,rgba(255,210,61,.55),rgba(255,210,61,0) 70%);pointer-events:none}
+  html[data-theme="dark"] h1{-webkit-text-stroke-color:#0a0805;text-stroke-color:#0a0805}
+  html[data-theme="dark"] h1::before{background:radial-gradient(ellipse at 42% 50%,rgba(255,210,61,.22),rgba(255,210,61,0) 70%)}
   .currency{font-size:12px;color:var(--faint)}
   .ask{margin-left:auto;display:inline-flex;flex-direction:column;align-items:flex-end;gap:0;
     text-decoration:none;background:var(--accent);color:#fff;padding:7px 14px;border-radius:8px;
     line-height:1.2;box-shadow:0 1px 2px rgba(0,0,0,.12);transition:background .15s,transform .05s}
   .ask{color:var(--ask-ink)}
-  .ask:hover{background:var(--accent-hover)}
-  .ask:active{transform:translateY(1px)}
+  /* small comic accent: hard offset shadow + tiny tilt, matching the title */
+  .ask{box-shadow:3px 3px 0 #16130d;transform:rotate(-1.2deg)}
+  .ask:hover{background:var(--accent-hover);transform:rotate(-1.2deg) translateY(-1px)}
+  .ask:active{transform:rotate(-1.2deg) translateY(1px)}
+  html[data-theme="dark"] .ask{box-shadow:3px 3px 0 #0a0805}
   .ask{font-size:14px;font-weight:600}
   .ask-sub{font-size:10.5px;font-weight:400;opacity:.85;letter-spacing:.01em}
   .ask-note{flex-basis:100%;text-align:right;font-size:10.5px;color:var(--faint);margin-top:3px;max-width:46ch;margin-left:auto;line-height:1.35}
@@ -87,7 +103,7 @@ document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
   .count{font-size:13px;color:var(--ink-soft);white-space:nowrap;margin-left:auto}
 
   /* header utilities (theme + density toggles) */
-  .titlewrap{display:flex;flex-direction:column;gap:2px;margin-right:auto}
+  .titlewrap{display:flex;flex-direction:column;gap:6px;margin-right:auto;position:relative}
   .util{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .ubtn{font-size:12px;border:1px solid var(--line-strong);background:var(--paper);color:var(--ink-soft);
     border-radius:7px;padding:6px 10px;cursor:pointer;white-space:nowrap}
@@ -298,7 +314,7 @@ document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
   <div class="bar">
     <div class="titlerow">
       <div class="titlewrap">
-        <h1>Charter of the City of New York</h1>
+        <h1>Charter of the City of New York<span class="bang">!</span></h1>
         <span class="currency" id="currency"></span>
       </div>
       <div class="util">
