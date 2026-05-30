@@ -18,6 +18,10 @@
   body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
        font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
   a{color:var(--accent)}
+  /* visible keyboard focus for every interactive control (accessibility) */
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+  .search input:focus-visible{outline-offset:0}
+  .sec-head:focus-visible{outline-offset:-2px}
 
   /* ---- top bar ---- */
   header{position:sticky;top:0;z-index:30;background:var(--card);
@@ -70,12 +74,12 @@
 
   article{background:var(--card);border:1px solid var(--line);border-radius:10px;
     margin:0 0 12px;overflow:hidden;scroll-margin-top:140px}
-  .sec-head{display:flex;align-items:baseline;gap:12px;padding:13px 16px;cursor:pointer;
+  .sec-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;padding:13px 16px;cursor:pointer;
     user-select:none}
   .sec-head:hover{background:var(--paper)}
   .cite{font-family:var(--serif);font-weight:700;color:var(--accent);font-size:15px;
-    white-space:nowrap;min-width:64px;font-variant-numeric:tabular-nums}
-  .sec-title{font-weight:600;font-size:15px;flex:1;line-height:1.35}
+    white-space:nowrap;min-width:54px;font-variant-numeric:tabular-nums}
+  .sec-title{font-weight:600;font-size:15px;flex:1 1 58%;min-width:10ch;line-height:1.35}
   .chip{font-size:10.5px;color:var(--faint);background:var(--paper);border:1px solid var(--line);
     border-radius:20px;padding:2px 9px;white-space:nowrap;align-self:center}
   .amend{font-size:10.5px;color:var(--ink-soft);background:var(--paper);border:1px solid var(--line);
@@ -92,7 +96,7 @@
   .crc-detail ul{margin:4px 0 0;padding-left:18px}
   .crc-detail li{margin:3px 0;color:var(--ink-soft)}
   .crc-detail .passed{font-size:10px;color:#0b5563;background:#cdeef0;border-radius:10px;padding:1px 6px;margin-left:4px}
-  .toggle{color:var(--faint);font-size:13px;transition:transform .15s;align-self:center}
+  .toggle{color:var(--faint);font-size:13px;transition:transform .15s;align-self:center;margin-left:auto}
   article.open .toggle{transform:rotate(90deg)}
   .sec-body{display:none;padding:0 16px 16px;border-top:1px solid var(--line);
     font-family:var(--serif);font-size:15.5px;line-height:1.7;color:var(--ink)}
@@ -109,8 +113,11 @@
   article.flash{animation:flashcard 1.1s ease-out}
 
   /* per-section permalink controls */
-  .sectools{display:inline-flex;gap:2px;align-self:center;opacity:0;transition:opacity .12s}
-  .sec-head:hover .sectools,.sec-head:focus-within .sectools{opacity:1}
+  .sectools{display:inline-flex;gap:2px;align-self:center;opacity:0;max-width:0;overflow:hidden;
+    transition:opacity .12s,max-width .12s}
+  .sec-head:hover .sectools,.sec-head:focus-within .sectools,article.open .sectools{opacity:1;max-width:300px}
+  /* touch devices have no hover — keep the tools reachable */
+  @media(hover:none){.sectools{opacity:1;max-width:300px}}
   .stbtn{border:none;background:none;color:var(--faint);cursor:pointer;font-size:13px;padding:3px 5px;
     border-radius:6px;line-height:1}
   .stbtn:hover{background:var(--paper);color:var(--accent)}
@@ -289,8 +296,7 @@
     <div class="filterbar" id="filterbar"></div>
     <div class="annobar" id="annobar"></div>
     <input type="file" id="annoFile" accept="application/json,.json" style="display:none">
-    <div class="hint">Search tips: use <code>"quotes"</code> for an exact phrase, <code>-word</code> to exclude a term, and <code>OR</code> between terms to match either.</div>
-    <div class="hint">Make it yours: hover any section and use <code>highlight</code> or <code>note</code> to mark it up. Your highlights and notes are saved privately in this browser.</div>
+    <div class="hint"><b>Search:</b> <code>"quotes"</code> for an exact phrase, <code>-word</code> to exclude, <code>OR</code> to match either. &nbsp;<b>Each section:</b> <code>highlight</code>, <code>note</code> or <code>share</code> it — highlights and notes save privately in this browser.</div>
   </div>
 </header>
 
@@ -578,12 +584,12 @@ function render(){
       if(s.chapter_citation!==cur){
         cur=s.chapter_citation;
         html+=`<h3 class="chapter-head" id="ch_${cssId(cur)}">${esc(s.chapter_citation)}: ${esc(s.chapter_title)}</h3>`;
-        html+=`<div class="chapter-sub">${esc(s.chapter_citation)}</div>`;
       }
-      html+=card(s,toks);
+      html+=card(s,toks,false); // chapter shown in the heading — no per-card chip
     }
   } else {
-    for(const s of list) html+=card(s,toks);
+    const showChip=!state.chap; // single-chapter view already states the chapter
+    for(const s of list) html+=card(s,toks,showChip);
   }
   elMain.innerHTML=html;
   // auto-open when searching (so matches show) or when viewing only annotations
@@ -638,7 +644,7 @@ function noteBox(s,an){
       <div class="note-meta"><button class="nclear" type="button">Clear note</button><span class="nsaved">saved</span></div>
     </div>`;
 }
-function card(s,toks){
+function card(s,toks,showChip){
   const title = s.sec_title || s.heading;
   const an = annoFor(s.id);
   const cls = [an.hl?'hled':'', an.note?'noted':''].filter(Boolean).join(' ');
@@ -650,7 +656,7 @@ function card(s,toks){
       <span class="sec-title">${highlight(title,toks)}</span>
       ${crcBadge(s)}
       ${amendBadge(s)}
-      <span class="chip">${esc(s.chapter_citation)}</span>
+      ${showChip?`<span class="chip">${esc(s.chapter_citation)}</span>`:''}
       <span class="sectools">
         <button class="stbtn${an.hl?' on':''}" data-act="hl" title="Highlight this section (saved in your browser)" aria-label="Highlight this section">highlight</button>
         <button class="stbtn${an.note?' on':''}" data-act="note" title="Add a private note (saved in your browser)" aria-label="Add a note">note</button>
