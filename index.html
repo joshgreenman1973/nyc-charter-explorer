@@ -72,17 +72,19 @@ document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
   .ask-note{flex-basis:100%;text-align:right;font-size:10.5px;color:var(--faint);margin-top:3px;max-width:46ch;margin-left:auto;line-height:1.35}
   @media (max-width:560px){.ask{margin-left:0;margin-top:8px;align-items:flex-start}
     .ask-note{text-align:left;margin-left:0}}
-  .controls{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;align-items:center}
-  .search{flex:1;min-width:240px;position:relative}
+  .controls{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+  .searchrow{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .filtersrow{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+  .search{flex:1 1 220px;min-width:0;position:relative}
   .search input{width:100%;padding:11px 38px 11px 14px;font-size:16px;font-family:var(--sans);
     border:1px solid var(--line-strong);border-radius:8px;background:var(--paper);color:var(--ink)}
   .search input:focus{outline:none;border-color:var(--accent);background:var(--field)}
   .search .clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);
     border:none;background:none;font-size:18px;color:var(--faint);cursor:pointer;padding:4px 8px;display:none}
   select{padding:10px 12px;font-size:14px;font-family:var(--sans);border:1px solid var(--line-strong);
-    border-radius:8px;background:var(--paper);color:var(--ink);cursor:pointer}
+    border-radius:8px;background:var(--paper);color:var(--ink);cursor:pointer;max-width:230px}
   label.ctl{font-size:12px;color:var(--faint);display:flex;flex-direction:column;gap:3px}
-  .count{font-size:13px;color:var(--ink-soft);margin-left:auto;white-space:nowrap}
+  .count{font-size:13px;color:var(--ink-soft);white-space:nowrap;margin-left:auto}
 
   /* header utilities (theme + density toggles) */
   .titlewrap{display:flex;flex-direction:column;gap:2px;margin-right:auto}
@@ -90,13 +92,15 @@ document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
   .ubtn{font-size:12px;border:1px solid var(--line-strong);background:var(--paper);color:var(--ink-soft);
     border-radius:7px;padding:6px 10px;cursor:pointer;white-space:nowrap}
   .ubtn:hover{border-color:var(--accent);color:var(--accent)}
-  /* advanced filters: inline on desktop, collapsible drawer on mobile */
+  /* advanced filters: on desktop the labels flow as direct row items so the
+     boxes bottom-align uniformly; on mobile they collapse into a drawer */
   .advfilters{display:contents}
+  .filtersrow .toolbtns{align-self:flex-end}
   .filters-btn{display:none}
   @media (max-width:700px){
-    .filters-btn{display:inline-block}
-    .advfilters{display:none;width:100%;flex-wrap:wrap;gap:10px}
-    .controls.adv-open .advfilters{display:flex}
+    .filters-btn{display:inline-block;flex:0 0 auto}
+    .advfilters{display:none}
+    .controls.adv-open .advfilters{display:flex;flex-wrap:wrap;gap:10px;width:100%}
     .controls.adv-open .filters-btn{border-color:var(--accent);color:var(--accent)}
     label.ctl{flex:1 1 44%}
     label.ctl select{width:100%}
@@ -308,11 +312,15 @@ document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
       <span class="ask-note">Note: the NotebookLM notebook is updated manually, so it may lag the latest amendments — this page is the up-to-date source.</span>
     </div>
     <div class="controls">
-      <div class="search">
-        <input id="q" type="search" placeholder="Search the full text of the Charter — e.g. mayor veto, land use review, conflicts of interest" autocomplete="off" spellcheck="false">
-        <button class="clear" id="clear" title="Clear">&times;</button>
+      <div class="searchrow">
+        <div class="search">
+          <input id="q" type="search" placeholder="Search the full text of the Charter — e.g. mayor veto, land use review, conflicts of interest" autocomplete="off" spellcheck="false">
+          <button class="clear" id="clear" title="Clear">&times;</button>
+        </div>
+        <button class="tbtn filters-btn" id="filtersToggle" aria-expanded="false">Filters</button>
+        <span class="count" id="count"></span>
       </div>
-      <button class="tbtn filters-btn" id="filtersToggle" aria-expanded="false">Filters</button>
+      <div class="filtersrow">
       <div class="advfilters">
       <label class="ctl">scope
         <select id="scope">
@@ -357,7 +365,7 @@ document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
         <button class="tbtn" id="collapseAll">Collapse</button>
         <button class="tbtn" id="exportBtn" title="Download the sections currently shown as a text file">Export</button>
       </div>
-      <span class="count" id="count"></span>
+      </div>
     </div>
     <div class="filterbar" id="filterbar"></div>
     <div class="annobar" id="annobar"></div>
