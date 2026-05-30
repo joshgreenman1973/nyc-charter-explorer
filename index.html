@@ -115,6 +115,35 @@
     border-radius:6px;line-height:1}
   .stbtn:hover{background:var(--paper);color:var(--accent)}
   .stbtn.copied{color:#0b7a3b}
+  /* personal annotations (stored in this browser) */
+  .stbtn[data-act="hl"].on{color:#b8860b;font-weight:600}
+  .stbtn[data-act="note"].on{color:var(--accent);font-weight:600}
+  article.hled{box-shadow:inset 4px 0 0 var(--mark)}
+  article.hled .sec-head{background:#fffaf0}
+  .anno-dot{display:none;width:7px;height:7px;border-radius:50%;background:var(--mark);
+    align-self:center;margin-left:2px;border:1px solid #d9b84a}
+  article.hled .anno-dot,article.noted .anno-dot{display:inline-block}
+  article.noted:not(.hled) .anno-dot{background:var(--accent-soft);border-color:#e0a07f}
+  .note-wrap{display:none;margin-top:14px;border:1px solid var(--line-strong);border-left:4px solid var(--mark);
+    border-radius:6px;background:#fffdf3;padding:8px 10px}
+  article.note-open .note-wrap,article.noted .note-wrap{display:block}
+  .note-wrap label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--faint);margin-bottom:4px}
+  .note-ta{width:100%;box-sizing:border-box;min-height:54px;resize:vertical;font:inherit;font-size:13px;
+    border:1px solid var(--line);border-radius:5px;padding:6px 8px;background:#fff;color:var(--ink)}
+  .note-ta:focus{outline:none;border-color:var(--accent)}
+  .note-meta{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+  .note-meta .nclear{border:none;background:none;color:var(--faint);font-size:11px;cursor:pointer;padding:2px 4px}
+  .note-meta .nclear:hover{color:var(--accent)}
+  .note-meta .nsaved{font-size:10.5px;color:#0b7a3b;opacity:0;transition:opacity .2s}
+  .note-meta .nsaved.show{opacity:1}
+  .annobar{display:none;gap:10px;margin-top:10px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--ink-soft)}
+  .annobar.on{display:flex}
+  .annobar .abtn{font-size:12px;border:1px solid var(--line-strong);background:var(--paper);color:var(--ink-soft);
+    padding:4px 9px;border-radius:6px;cursor:pointer}
+  .annobar .abtn:hover{border-color:var(--accent);color:var(--accent)}
+  .annobar .abtn.on{background:var(--accent-soft);border-color:#eccab7;color:var(--accent);font-weight:600}
+  .annobar .acave{color:var(--faint);font-size:11px}
 
   /* sec-head as a button */
   .sec-head{width:100%;text-align:left;border:none;background:none;font-family:inherit;font-size:inherit;color:inherit}
@@ -245,7 +274,10 @@
       <span class="count" id="count"></span>
     </div>
     <div class="filterbar" id="filterbar"></div>
+    <div class="annobar" id="annobar"></div>
+    <input type="file" id="annoFile" accept="application/json,.json" style="display:none">
     <div class="hint">Search tips: use <code>"quotes"</code> for an exact phrase, <code>-word</code> to exclude a term, and <code>OR</code> between terms to match either.</div>
+    <div class="hint">Make it yours: hover any section and use <code>highlight</code> or <code>note</code> to mark it up. Your highlights and notes are saved privately in this browser.</div>
   </div>
 </header>
 
@@ -347,6 +379,18 @@ function highlightTerms(parsed){
 }
 function occ(h,t){return t?h.split(t).length-1:0;}
 
+// ---- personal annotations (highlights + notes), stored in this browser ----
+// Keyed by the section's stable source record id. localStorage persists across
+// sessions on this device/browser only; there is no account or server.
+const ANNO_KEY='charter_anno_v1';
+let ANNO=(()=>{try{return JSON.parse(localStorage.getItem(ANNO_KEY))||{};}catch(e){return {};}})();
+function annoFor(id){return ANNO[id]||{};}
+function persistAnno(){try{localStorage.setItem(ANNO_KEY,JSON.stringify(ANNO));}catch(e){}}
+function writeAnno(id,a){if(a.note||a.hl)ANNO[id]=a;else delete ANNO[id];persistAnno();}
+function setNote(id,text){const a=Object.assign({},ANNO[id]);text=(text||'').trim();if(text)a.note=text;else delete a.note;writeAnno(id,a);}
+function setHL(id,on){const a=Object.assign({},ANNO[id]);if(on)a.hl=1;else delete a.hl;writeAnno(id,a);}
+function annoCount(){return Object.keys(ANNO).length;}
+
 function highlight(text, toks){
   const hts=hlToks(toks);
   if(!hts.length) return esc(text);
@@ -411,7 +455,7 @@ function snippet(text, toks, n=240){
   return highlight(seg,toks);
 }
 
-let state={q:'',scope:'all',sort:'chapter',chap:'',since:0,crc:''};
+let state={q:'',scope:'all',sort:'chapter',chap:'',since:0,crc:'',anno:false};
 
 function chapterKey(s){return [s.chapter_num,s.chapter_suffix];}
 
@@ -438,6 +482,7 @@ function computeList(){
     if(state.since && !(s.latest_amend && s.latest_amend>=state.since)) return false;
     if(state.crc==='any' && !s.crc_years.length) return false;
     if(state.crc && state.crc!=='any' && !s.crc_years.includes(+state.crc)) return false;
+    if(state.anno && !ANNO[s.id]) return false;
     if(!searching){scored.set(s.id,0);return true;}
     const sc=scoreParsed(s,parsed,state.scope);
     scored.set(s.id,sc);
@@ -479,6 +524,9 @@ function exportView(){
         t.year+' Q'+t.question+(t.action?' ('+t.action+')':'')).join('; '));
     }
     if(s.laws && s.laws.length) L.push('Local Laws on record: '+s.laws.join(', '));
+    const an=annoFor(s.id);
+    if(an.hl) L.push('** highlighted **');
+    if(an.note) L.push('Your note: '+an.note);
     L.push('');
     L.push(s.text || '[No text in source.]');
     L.push('');
@@ -501,6 +549,7 @@ function render(){
   const filtering = !!(state.q || state.chap || state.since || state.crc);
   updateToc(list, filtering);
   renderFilterBar();
+  updateAnnoBar();
   stateToUrl();
 
   if(!list.length){
@@ -524,8 +573,8 @@ function render(){
     for(const s of list) html+=card(s,toks);
   }
   elMain.innerHTML=html;
-  // auto-open when searching (so matches show), else collapsed
-  if(searching){
+  // auto-open when searching (so matches show) or when viewing only annotations
+  if(searching||state.anno){
     document.querySelectorAll('article').forEach(a=>{
       a.classList.add('open');
       const h=a.querySelector('.sec-head'); if(h) h.setAttribute('aria-expanded','true');
@@ -569,11 +618,20 @@ function crcDetail(s){
   return `<div class="crc-detail"><span class="laws-h">Charter Revision Commission changes:</span><ul>${rows}</ul></div>`;
 }
 
+function noteBox(s,an){
+  return `<div class="note-wrap">
+      <label>Your note — ${esc(s.citation)}</label>
+      <textarea class="note-ta" placeholder="Type a private note about this section…">${esc(an.note||'')}</textarea>
+      <div class="note-meta"><button class="nclear" type="button">Clear note</button><span class="nsaved">saved</span></div>
+    </div>`;
+}
 function card(s,toks){
   const title = s.sec_title || s.heading;
+  const an = annoFor(s.id);
+  const cls = [an.hl?'hled':'', an.note?'noted':''].filter(Boolean).join(' ');
   const body = s.text ? `<div class="reading"><p>${buildBody(s.text,toks,s.citation)}</p></div>` : '<p style="color:var(--faint)">No text in source.</p>';
   const snip = (toks.length && s.text) ? `<div class="snip">${snippet(s.text,toks)}</div>` : '';
-  return `<article id="sec_${cssId(s.citation)}">
+  return `<article id="sec_${cssId(s.citation)}" data-id="${esc(String(s.id))}"${cls?` class="${cls}"`:''}>
     <div class="sec-head" role="button" tabindex="0" aria-expanded="false" data-cite="${esc(s.citation)}">
       <span class="cite">${esc(s.citation)}</span>
       <span class="sec-title">${highlight(title,toks)}</span>
@@ -581,13 +639,16 @@ function card(s,toks){
       ${amendBadge(s)}
       <span class="chip">${esc(s.chapter_citation)}</span>
       <span class="sectools">
+        <button class="stbtn${an.hl?' on':''}" data-act="hl" title="Highlight this section (saved in your browser)" aria-label="Highlight this section">highlight</button>
+        <button class="stbtn${an.note?' on':''}" data-act="note" title="Add a private note (saved in your browser)" aria-label="Add a note">note</button>
         <button class="stbtn" data-act="link" title="Copy a link to this section" aria-label="Copy a link to this section">link</button>
         <button class="stbtn" data-act="cite" title="Copy the citation" aria-label="Copy the citation">cite</button>
       </span>
+      <span class="anno-dot" aria-hidden="true"></span>
       <span class="toggle" aria-hidden="true">▸</span>
     </div>
     ${snip}
-    <div class="sec-body">${body}${crcDetail(s)}${amendTimeline(s)}${lawList(s)}</div>
+    <div class="sec-body">${body}${crcDetail(s)}${amendTimeline(s)}${lawList(s)}${noteBox(s,an)}</div>
   </article>`;
 }
 
@@ -691,7 +752,7 @@ function restoreFromUrl(){
   syncControls();
 }
 function resetAll(){
-  state={q:'',scope:'all',sort:'chapter',chap:'',since:0,crc:'',sortTouched:false};
+  state={q:'',scope:'all',sort:'chapter',chap:'',since:0,crc:'',anno:false,sortTouched:false};
   syncControls();
 }
 
@@ -725,17 +786,97 @@ function gotoSection(anchor){
   history.replaceState(null,'',location.pathname+location.search+'#'+anchor);
 }
 
+// ---- annotation interactions ----
+function toggleHL(btn){
+  const art=btn.closest('article'); const id=art.dataset.id;
+  const on=!annoFor(id).hl; setHL(id,on);
+  btn.classList.toggle('on',on); art.classList.toggle('hled',on);
+  updateAnnoBar();
+}
+function openNote(btn){
+  const art=btn.closest('article');
+  art.classList.add('open','note-open');
+  const h=art.querySelector('.sec-head'); if(h) h.setAttribute('aria-expanded','true');
+  const ta=art.querySelector('.note-ta'); if(ta){ ta.focus(); ta.setSelectionRange(ta.value.length,ta.value.length); }
+}
+function clearNote(nc){
+  const art=nc.closest('article'); const id=art.dataset.id;
+  const ta=art.querySelector('.note-ta'); if(ta) ta.value='';
+  setNote(id,''); art.classList.remove('noted');
+  const nb=art.querySelector('.stbtn[data-act="note"]'); if(nb) nb.classList.remove('on');
+  updateAnnoBar(); if(ta) ta.focus();
+}
+function updateAnnoBar(){
+  const bar=document.getElementById('annobar'); const n=annoCount();
+  if(!n && !state.anno){ bar.className='annobar'; bar.innerHTML=''; return; }
+  bar.className='annobar on';
+  bar.innerHTML=
+    '<span><b>'+n+'</b> section'+(n===1?'':'s')+' with your highlights or notes</span>'+
+    '<button class="abtn'+(state.anno?' on':'')+'" id="annoOnly">'+(state.anno?'Showing only yours':'Show only mine')+'</button>'+
+    '<button class="abtn" id="annoBackup">Back up</button>'+
+    '<button class="abtn" id="annoRestore">Restore</button>'+
+    '<span class="acave">Saved in this browser only — not synced across devices. Back up to keep or move them.</span>';
+}
+function backupNotes(){
+  const byId={}; SECTIONS.forEach(s=>byId[s.id]=s.citation);
+  const payload={app:'nyc-charter-explorer',type:'annotations',version:1,items:{}};
+  Object.keys(ANNO).forEach(id=>{ payload.items[id]=Object.assign({citation:byId[id]||null},ANNO[id]); });
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='nyc-charter-notes-backup.json'; document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},0);
+}
+function restoreNotes(file){
+  const r=new FileReader();
+  r.onload=()=>{
+    let added=0;
+    try{
+      const data=JSON.parse(r.result); const items=data.items||data;
+      Object.keys(items).forEach(id=>{
+        const it=items[id]||{}; const a=Object.assign({},ANNO[id]);
+        if(it.note){ a.note=String(it.note); } if(it.hl){ a.hl=1; }
+        if(a.note||a.hl){ ANNO[id]=a; added++; }
+      });
+      persistAnno();
+    }catch(e){ alert('Sorry — that file could not be read as a notes backup.'); return; }
+    render();
+    alert('Restored highlights or notes for '+added+' section'+(added===1?'':'s')+'.');
+  };
+  r.readAsText(file);
+}
+
 elMain.addEventListener('click',e=>{
   const st=e.target.closest('.stbtn');
-  if(st){ e.stopPropagation(); handleCopy(st); return; }
+  if(st){ e.stopPropagation();
+    const act=st.dataset.act;
+    if(act==='hl') toggleHL(st);
+    else if(act==='note') openNote(st);
+    else handleCopy(st);
+    return;
+  }
+  const nc=e.target.closest('.nclear');
+  if(nc){ e.stopPropagation(); clearNote(nc); return; }
   const xr=e.target.closest('a.xref');
   if(xr){ e.preventDefault(); gotoSection(xr.dataset.anchor); return; }
   const head=e.target.closest('.sec-head');
   if(head) toggleHead(head);
 });
 elMain.addEventListener('keydown',e=>{
+  if(e.target.closest('.note-ta')) return; // let the textarea handle its own keys
   const head=e.target.closest('.sec-head');
   if(head && (e.key==='Enter'||e.key===' ')){ e.preventDefault(); toggleHead(head); }
+});
+// live-save note edits (debounced)
+elMain.addEventListener('input',e=>{
+  const ta=e.target.closest('.note-ta'); if(!ta) return;
+  const art=ta.closest('article'); const id=art.dataset.id;
+  clearTimeout(ta._t); ta._t=setTimeout(()=>{
+    setNote(id,ta.value);
+    art.classList.toggle('noted',!!annoFor(id).note);
+    const nb=art.querySelector('.stbtn[data-act="note"]'); if(nb) nb.classList.toggle('on',!!annoFor(id).note);
+    const sv=art.querySelector('.nsaved'); if(sv){sv.classList.add('show');clearTimeout(sv._t);sv._t=setTimeout(()=>sv.classList.remove('show'),900);}
+    updateAnnoBar();
+  },350);
 });
 
 // ---- controls ----
@@ -765,11 +906,20 @@ document.getElementById('filterbar').addEventListener('click',e=>{
     else if(k==='sort'){state.sort='chapter';state.sortTouched=false;} syncControls(); }
   render();
 });
+document.getElementById('annobar').addEventListener('click',e=>{
+  if(e.target.closest('#annoOnly')){ state.anno=!state.anno; render(); window.scrollTo(0,0); }
+  else if(e.target.closest('#annoBackup')){ backupNotes(); }
+  else if(e.target.closest('#annoRestore')){ document.getElementById('annoFile').click(); }
+});
+document.getElementById('annoFile').addEventListener('change',e=>{
+  const f=e.target.files&&e.target.files[0]; if(f) restoreNotes(f); e.target.value='';
+});
 window.addEventListener('scroll',()=>{requestAnimationFrame(spy);});
 // keyboard: / focuses search
 document.addEventListener('keydown',e=>{
-  if(e.key==='/' && document.activeElement!==elQ){e.preventDefault();elQ.focus();}
-  if(e.key==='Escape' && document.activeElement===elQ){elQ.value='';state.q='';render();}
+  const ae=document.activeElement, typing=ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA');
+  if(e.key==='/' && !typing){e.preventDefault();elQ.focus();}
+  if(e.key==='Escape' && ae===elQ){elQ.value='';state.q='';render();}
 });
 
 // ---- rejected-proposals panel (context only; not tagged on sections) ----
