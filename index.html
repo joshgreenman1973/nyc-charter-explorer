@@ -357,14 +357,6 @@ document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
       <label class="ctl">chapter
         <select id="chapfilter"><option value="">All chapters</option></select>
       </label>
-      <label class="ctl">amended since
-        <select id="since">
-          <option value="0">Any time</option>
-          <option value="2024">2024</option>
-          <option value="2020">2020</option>
-          <option value="2015">2015</option>
-        </select>
-      </label>
       <label class="ctl">revision commission
         <select id="crc">
           <option value="">All sections</option>
@@ -878,7 +870,6 @@ function stateToUrl(){
 function syncControls(){
   elQ.value=state.q; document.getElementById('clear').style.display=state.q?'block':'none';
   elScope.value=state.scope; elSort.value=state.sort; elChap.value=state.chap;
-  document.getElementById('since').value=String(state.since||0);
   document.getElementById('crc').value=state.crc;
 }
 function restoreFromUrl(){
@@ -887,7 +878,6 @@ function restoreFromUrl(){
   if(p.has('scope')) state.scope=p.get('scope');
   if(p.has('sort')){ state.sort=p.get('sort'); state.sortTouched=true; }
   if(p.has('chap')) state.chap=p.get('chap');
-  if(p.has('since')) state.since=+p.get('since')||0;
   if(p.has('crc')) state.crc=p.get('crc');
   syncControls();
 }
@@ -1191,7 +1181,6 @@ document.getElementById('clear').addEventListener('click',()=>{
 elSort.addEventListener('change',()=>{state.sort=elSort.value;state.sortTouched=true;render();});
 elScope.addEventListener('change',()=>{state.scope=elScope.value;render();});
 elChap.addEventListener('change',()=>{state.chap=elChap.value;render();window.scrollTo(0,0);});
-document.getElementById('since').addEventListener('change',e=>{state.since=+e.target.value;render();window.scrollTo(0,0);});
 document.getElementById('crc').addEventListener('change',e=>{state.crc=e.target.value;render();window.scrollTo(0,0);});
 document.getElementById('expandAll').addEventListener('click',()=>document.querySelectorAll('article').forEach(a=>{a.classList.add('open');const h=a.querySelector('.sec-head');if(h)h.setAttribute('aria-expanded','true');}));
 document.getElementById('collapseAll').addEventListener('click',()=>document.querySelectorAll('article').forEach(a=>{a.classList.remove('open');const h=a.querySelector('.sec-head');if(h)h.setAttribute('aria-expanded','false');}));
