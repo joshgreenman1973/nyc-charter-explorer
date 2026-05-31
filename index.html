@@ -69,10 +69,9 @@ document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
     text-shadow:4px 4px 0 var(--accent);transform:rotate(-2deg);transform-origin:left center;
     display:inline-block;align-self:flex-start;padding:3px 6px 5px 2px}
   h1 .bang{color:#e23b2e;-webkit-text-stroke:2.4px #16130d;text-stroke:2.4px #16130d}
-  h1::before{content:"";position:absolute;left:-14px;top:-10px;width:62%;height:150%;z-index:-1;
-    background:radial-gradient(ellipse at 42% 50%,rgba(255,210,61,.55),rgba(255,210,61,0) 70%);pointer-events:none}
-  html[data-theme="dark"] h1{-webkit-text-stroke-color:#0a0805;text-stroke-color:#0a0805}
-  html[data-theme="dark"] h1::before{background:radial-gradient(ellipse at 42% 50%,rgba(255,210,61,.22),rgba(255,210,61,0) 70%)}
+  /* glow hugs the letters (no boxy element) — a touch stronger on dark */
+  html[data-theme="dark"] h1{-webkit-text-stroke-color:#0a0805;text-stroke-color:#0a0805;
+    text-shadow:4px 4px 0 var(--accent),0 0 18px rgba(255,210,61,.4)}
   .currency{font-size:12px;color:var(--faint)}
   .ask{margin-left:auto;display:inline-flex;flex-direction:column;align-items:flex-end;gap:0;
     text-decoration:none;background:var(--accent);color:#fff;padding:7px 14px;border-radius:8px;
