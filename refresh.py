@@ -99,11 +99,8 @@ def main():
     vpath = os.path.join(DATA, "versions.json")
     old_through = current_through(vpath)
 
-    ensure_node_modules()
-    print("Fetching Charter XML from American Legal Publishing ...")
-    run(["node", "fetch-charter.js"], RDIR)
-    print("Parsing XML (BetaNYC fast-xml-parser logic) ...")
-    run(["node", "build-charter.js"], RDIR)
+    print("Fetching + parsing Charter XML from American Legal Publishing ...")
+    run([sys.executable, "extract.py"], RDIR)  # document-order parser (see extract.py)
 
     ver = json.load(open(os.path.join(OUT, "charter-version.json")))
     new_through = ver["currentThrough"]
