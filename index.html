@@ -73,6 +73,8 @@ document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
   html[data-theme="dark"] h1{-webkit-text-stroke-color:#0a0805;text-stroke-color:#0a0805;
     text-shadow:4px 4px 0 var(--accent),0 0 18px rgba(255,210,61,.4)}
   .currency{font-size:12px;color:var(--faint)}
+  .credit{font-size:11.5px;color:var(--faint);line-height:1.4;max-width:62ch;margin-top:2px}
+  .credit a{color:var(--accent)}
   .ask{margin-left:auto;display:inline-flex;flex-direction:column;align-items:flex-end;gap:0;
     text-decoration:none;background:var(--accent);color:#fff;padding:7px 14px;border-radius:8px;
     line-height:1.2;box-shadow:0 1px 2px rgba(0,0,0,.12);transition:background .15s,transform .05s}
@@ -316,6 +318,7 @@ document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
       <div class="titlewrap">
         <h1>Charter of the City of New York<span class="bang">!</span></h1>
         <span class="currency" id="currency"></span>
+        <span class="credit">Made possible by <a href="https://github.com/BetaNYC/nyc-charter-laws-rules" target="_blank" rel="noopener">BetaNYC&rsquo;s nyc-charter-laws-rules</a>, which makes the Charter machine-readable.</span>
       </div>
       <div class="util">
         <button class="ubtn" id="densityToggle" title="Toggle a denser layout" aria-pressed="false">Compact</button>
