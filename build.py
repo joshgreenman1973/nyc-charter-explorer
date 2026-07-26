@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build enriched charter data + a NotebookLM-ready document from charter.json."""
+"""Build enriched charter data + a Gemini Notebook-ready document from charter.json."""
 import json, re, datetime
 
 SRC = "data/charter.json"
@@ -166,7 +166,7 @@ with open("charter-data.js", "w") as f:
     f.write(";")
 print("Wrote charter-data.js")
 
-# ---- NotebookLM document ----
+# ---- Gemini Notebook document ----
 # Currency string comes from versions.json (refreshed from American Legal
 # Publishing by refresh.py), so the doc header tracks the data automatically.
 _chv = versions.get("charter", {}) if isinstance(versions, dict) else {}
@@ -218,7 +218,7 @@ for c in chapter_list:
     md.append("")
 
 doc = "\n".join(md)
-open("NYC-Charter-for-NotebookLM.md", "w").write(doc)
+open("NYC-Charter-for-GeminiNotebook.md", "w").write(doc)
 # plain text version
-open("NYC-Charter-for-NotebookLM.txt", "w").write(doc)
-print(f"Wrote NotebookLM doc: ~{total_words:,} words, {len(doc):,} chars")
+open("NYC-Charter-for-GeminiNotebook.txt", "w").write(doc)
+print(f"Wrote Gemini Notebook doc: ~{total_words:,} words, {len(doc):,} chars")

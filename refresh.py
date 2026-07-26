@@ -10,7 +10,7 @@ THE BATCH PROCESS (what the user asked for):
      reproduces the original data byte-for-byte, so citations like "§ 197-c" stay identical
      and the Charter Revision Commission map (data/crc-map.json) keeps matching.
   3. This script copies that into data/charter.json, refreshes data/versions.json, and runs
-     build.py to regenerate charter-data.json / charter-data.js / the NotebookLM files.
+     build.py to regenerate charter-data.json / charter-data.js / the Gemini Notebook files.
 
 It prints CHANGED or UNCHANGED so a scheduler can decide whether to commit + redeploy.
 

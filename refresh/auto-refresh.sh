@@ -6,7 +6,7 @@
 # This script does the deterministic heavy lifting only. It is invoked by a weekly
 # scheduled Claude task (~/.claude/scheduled-tasks/charter-refresh), which reads the
 # RESULT line below and, on a real change, adds a Google Calendar reminder to
-# re-upload the file to NotebookLM. No iMessage (that channel was unreliable).
+# re-upload the file to Gemini Notebook. No iMessage (that channel was unreliable).
 #
 # It prints exactly one machine-readable RESULT line as its last stdout line:
 #   RESULT: CHANGED | <new currency string>
@@ -54,7 +54,7 @@ else
   # no-op rebuild dirties these artifacts. Restore them so the tree stays clean.
   log "UNCHANGED — restoring regenerated artifacts, nothing to deploy"
   git checkout -- charter-data.js charter-data.json data/versions.json \
-    NYC-Charter-for-NotebookLM.md NYC-Charter-for-NotebookLM.txt 2>>"$LOG"
+    NYC-Charter-for-GeminiNotebook.md NYC-Charter-for-GeminiNotebook.txt 2>>"$LOG"
   echo "RESULT: UNCHANGED"
 fi
 log "=== refresh run end ==="
