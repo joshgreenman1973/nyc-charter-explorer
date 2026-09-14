@@ -2,7 +2,7 @@
 
 *The full text of the New York City Charter, organized by chapter and section, prepared as a single reference document for question-and-answer use.*
 
-**Currency:** Current through Local Law 2026/134, enacted August 18, 2026, and includes amendments effective through August 18, 2026.
+**Currency:** Current through Local Law 2026/135, enacted August 31, 2026, and includes amendments effective through September 10, 2026.
 **Scope:** 772 sections across 77 chapters (~323,414 words).
 **Source:** American Legal Publishing code library (codelibrary.amlegal.com), compiled via the BetaNYC nyc-charter-laws-rules dataset.
 
