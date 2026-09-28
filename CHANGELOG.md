@@ -2,6 +2,11 @@
 
 Record of when the Charter data in this explorer changed, kept by `refresh.py`. A refresh is logged here only when American Legal Publishing's `currentThrough` version string advances. Section-level notes compare the new data against the prior copy by record id.
 
+## 2026-09-28
+
+- Currency: `Current through Local Law 2026/147, enacted September 12, 2026,and includes amendments effective through September 12, 2026.` -> `Current through Local Law 2026/147, enacted September 12, 2026,and includes amendments effective through September 23, 2026.`
+- 1 section(s) with changed text: § 734
+
 ## 2026-09-22
 
 - Currency: `Current through Local Law 2026/135, enacted August 31, 2026,and includes amendments effective through September 10, 2026.` -> `Current through Local Law 2026/147, enacted September 12, 2026,and includes amendments effective through September 12, 2026.`
