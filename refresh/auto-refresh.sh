@@ -23,6 +23,24 @@ cd "$PROJECT" || { echo "RESULT: ABORT | cannot cd to project"; exit 1; }
 ts() { date "+%Y-%m-%d %H:%M:%S"; }
 log() { echo "[$(ts)] $*" >> "$LOG"; }
 
+# The Vital City copy (vitalcity-nyc/nyc-charter-explorer, embedded in Vital City
+# articles) shares this build. After a real change, copy the new source data in,
+# rebuild there and push as vitalcity-nyc, so the embed never lags this site.
+VC="/Users/joshgreenman/Experiments/vc-nyc-charter-explorer"
+mirror_vc() {
+  ( cd "$VC" || exit 1
+    git pull -q --ff-only origin main >> "$LOG" 2>&1 || exit 1
+    cp "$PROJECT/data/charter.json" "$PROJECT/data/versions.json" data/ || exit 1
+    cp "$PROJECT/CHANGELOG.md" . || exit 1
+    /usr/bin/python3 build.py >> "$LOG" 2>&1 || exit 1
+    git add charter-data.js charter-data.json data/charter.json data/versions.json CHANGELOG.md \
+      NYC-Charter-for-GeminiNotebook.md NYC-Charter-for-GeminiNotebook.txt
+    git commit -q -m "Sync Charter text from the weekly refresh ($(date +%Y-%m-%d))" >> "$LOG" 2>&1 || exit 1
+    gh auth switch --user vitalcity-nyc >> "$LOG" 2>&1
+    git push origin main >> "$LOG" 2>&1 || exit 1
+  )
+}
+
 log "=== refresh run start ==="
 OUT="$(/usr/bin/python3 refresh.py 2>&1)"
 echo "$OUT" >> "$LOG"
@@ -42,7 +60,13 @@ if echo "$OUT" | grep -q "^DONE. CHANGED"; then
   if git push origin main >> "$LOG" 2>&1; then
     gh auth switch --user vitalcity-nyc >> "$LOG" 2>&1
     log "pushed OK"
-    echo "RESULT: CHANGED | $NOW"
+    if mirror_vc; then
+      log "Vital City copy synced"
+      echo "RESULT: CHANGED | $NOW"
+    else
+      log "Vital City copy sync FAILED"
+      echo "RESULT: CHANGED | $NOW [the Vital City copy at vitalcity-nyc.github.io/nyc-charter-explorer did NOT sync; see refresh/auto-refresh.log]"
+    fi
   else
     gh auth switch --user vitalcity-nyc >> "$LOG" 2>&1
     log "push FAILED"
